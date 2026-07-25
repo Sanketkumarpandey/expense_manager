@@ -1,0 +1,121 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "autoname": "hash",
+ "creation": "2026-07-23 10:59:31.756400",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "dependent",
+  "allocation_period",
+  "column_break_uhhd",
+  "allocated_amount",
+  "allocation_date",
+  "section_break_vzrz",
+  "carry_forward_amount",
+  "is_active",
+  "remarks",
+  "column_break_uetz",
+  "total_available_amount"
+ ],
+ "fields": [
+  {
+   "fieldname": "dependent",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Dependent",
+   "options": "Dependent",
+   "reqd": 1
+  },
+  {
+   "fieldname": "allocated_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Allocated Amount",
+   "reqd": 1
+  },
+  {
+   "default": "Today",
+   "fieldname": "allocation_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Allocation Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "allocation_period",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Allocation Period",
+   "options": "Weekly\nMonthly\nQuarterly\nYearly",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "carry_forward_amount",
+   "fieldtype": "Currency",
+   "label": "Carry Forward Amount"
+  },
+  {
+   "default": "0",
+   "fieldname": "total_available_amount",
+   "fieldtype": "Currency",
+   "label": "Total Available Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active"
+  },
+  {
+   "fieldname": "column_break_uhhd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_vzrz",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_uetz",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-23 15:14:26.164980",
+ "modified_by": "Administrator",
+ "module": "Expense Manager",
+ "name": "Pocket Money Allocation",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "search_fields": "dependent ",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "dependent"
+}

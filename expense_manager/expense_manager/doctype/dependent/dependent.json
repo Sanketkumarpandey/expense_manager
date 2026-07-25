@@ -1,0 +1,115 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "autoname": "hash",
+ "creation": "2026-07-23 10:43:09.979648",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "dependent_name",
+  "guardian",
+  "column_break_uohi",
+  "relationship",
+  "default_monthly_allowance",
+  "section_break_ajtz",
+  "telegram_username",
+  "allow_carry_forward",
+  "column_break_aeqa",
+  "telegram_user_id",
+  "is_active"
+ ],
+ "fields": [
+  {
+   "fieldname": "dependent_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Dependent Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "guardian",
+   "fieldtype": "Link",
+   "label": "Guardian",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_uohi",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "relationship",
+   "fieldtype": "Select",
+   "label": "Relationship",
+   "options": "Son\nDaughter\nBrother\nSister\nSpouse\nParent\nFriend\nOther",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_ajtz",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "telegram_username",
+   "fieldtype": "Data",
+   "label": "Telegram Username"
+  },
+  {
+   "default": "1",
+   "fieldname": "allow_carry_forward",
+   "fieldtype": "Check",
+   "label": "Allow Carry Forward"
+  },
+  {
+   "fieldname": "column_break_aeqa",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "telegram_user_id",
+   "fieldtype": "Data",
+   "label": "Telegram User ID"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active"
+  },
+  {
+   "fieldname": "default_monthly_allowance",
+   "fieldtype": "Currency",
+   "label": "Default Monthly Allowance",
+   "reqd": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-23 15:10:09.879129",
+ "modified_by": "Administrator",
+ "module": "Expense Manager",
+ "name": "Dependent",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "search_fields": "dependent_name, guardian",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "dependent_name",
+ "track_changes": 1
+}
