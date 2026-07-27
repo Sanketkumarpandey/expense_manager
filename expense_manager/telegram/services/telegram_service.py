@@ -17,10 +17,14 @@ from expense_manager.services.exceptions import (
 from expense_manager.services.expense_service import ExpenseService
 from expense_manager.services.category_service import CategoryService
 from expense_manager.services.dependent_service import DependentService
+from expense_manager.services.budget_service import BudgetService
 from expense_manager.services.pocket_money_service import PocketMoneyService
 from expense_manager.services.telegram_link_service import TelegramLinkService
 from expense_manager.services.report_service import ReportService
 from expense_manager.constants.expense import ExpenseSource
+
+from expense_manager.services.ai_service import AIService
+from expense_manager.ai.exceptions import AIError
 
 
 _TELEGRAM_API_BASE_URL = "https://api.telegram.org"
@@ -43,6 +47,25 @@ def send_message(chat_id: str | int, text: str, parse_mode: str | None = None) -
 	frappe.logger("expense_manager").info("telegram_send_message status=sent")
 	return cast(dict[str, object], response_payload)
 
+
+def send_photo(chat_id: str | int, photo_bytes: bytes, caption: str | None = None) -> dict[str, object]:
+	"""Send one PNG image through Telegram, with an optional caption."""
+	data: dict[str, str | int] = {"chat_id": chat_id}
+	if caption is not None:
+		data["caption"] = caption[:1024]
+	files = {"photo": ("report.png", photo_bytes, "image/png")}
+	response = requests.post(
+		f"{_TELEGRAM_API_BASE_URL}/bot{get_telegram_bot_token()}/sendPhoto",
+		data=data,
+		files=files,
+		timeout=15,
+	)
+	response.raise_for_status()
+	response_payload = response.json()
+	if not isinstance(response_payload, dict):
+		raise ValueError("Telegram returned an invalid sendPhoto response.")
+	frappe.logger("expense_manager").info("telegram_send_photo status=sent")
+	return cast(dict[str, object], response_payload)
 
 class TelegramService:
 
@@ -75,9 +98,11 @@ class TelegramService:
 				voice_transcript=expense_data.get("voice_transcript"),
 			)
 
+			warning = TelegramService._get_overspend_warning(identity["owner_user"], expense.category)
+
 			return {
 				"success": True,
-				"message": _("Expense created successfully."),
+				"message": _("Expense created successfully.") + warning,
 				"expense": expense.name,
 			}
 
@@ -100,9 +125,11 @@ class TelegramService:
 				**updates,
 			)
 
+			warning = TelegramService._get_overspend_warning(identity["owner_user"], expense.category)
+
 			return {
 				"success": True,
-				"message": _("Expense updated successfully."),
+				"message": _("Expense updated successfully.") + warning,
 				"expense": expense.name,
 			}
 
@@ -137,6 +164,38 @@ class TelegramService:
 			return {"success": True, "data": data}
 
 		except ExpenseManagerError as exc:
+			return {"success": False, "message": str(exc)}
+
+	@staticmethod
+	def create_expense_from_voice(
+		telegram_user_id: str,
+		file_path: str,
+		language_hint: Optional[str] = None,
+	) -> dict:
+		identity = TelegramService._resolve_identity(telegram_user_id)
+		dependent = identity["dependent"] if identity["is_dependent"] else None
+
+		try:
+			expense = AIService.create_expense_from_audio(
+				owner_user=identity["owner_user"],
+				file_path=file_path,
+				dependent=dependent,
+				language_hint=language_hint,
+			)
+
+			category_name = CategoryService.get_category(
+				identity["owner_user"], expense.category
+			).category_name
+
+			warning = TelegramService._get_overspend_warning(identity["owner_user"], expense.category)
+
+			return {
+				"success": True,
+				"message": _("Logged {0} under {1}.").format(expense.amount, category_name) + warning,
+				"expense": expense.name,
+			}
+
+		except (ExpenseManagerError, AIError) as exc:
 			return {"success": False, "message": str(exc)}
 
 	# ------------------------------------------------------------------
@@ -371,3 +430,40 @@ class TelegramService:
 			raise UnauthorizedTelegramActionError(
 				_("This action is only available to the account guardian.")
 			)
+
+	@staticmethod
+	def _get_overspend_warning(owner_user: str, category: str) -> str:
+		try:
+			usage = BudgetService.get_budget_usage(owner_user, category)
+		except ExpenseManagerError:
+			return ""
+
+		if usage is None or not usage["is_overspent"]:
+			return ""
+
+		category_name = CategoryService.get_category(owner_user, category).category_name
+
+		return _(" ⚠️ You're over budget in {0}: {1} spent of {2} allocated.").format(
+			category_name, usage["spent_amount"], usage["allocated_amount"]
+		)
+
+
+	@staticmethod
+	def rollover_pocket_money(telegram_user_id: str) -> dict:
+		identity = TelegramService._resolve_identity(telegram_user_id)
+
+		if not identity["is_dependent"]:
+			return {"success": False, "message": _("Only a dependent account can roll over pocket money.")}
+
+		try:
+			new_allocation = PocketMoneyService.rollover_allocation(
+				identity["owner_user"], identity["dependent"]
+			)
+			return {
+				"success": True,
+				"message": _("Rolled over! New balance: {0}.").format(
+					new_allocation.total_available_amount
+				),
+			}
+		except ExpenseManagerError as exc:
+			return {"success": False, "message": str(exc)}

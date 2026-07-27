@@ -509,3 +509,42 @@ class PocketMoneyService:
         # No other DocType links to Pocket Money Allocation, so there
         # is nothing to guard against before deletion.
         return None
+
+    @staticmethod
+    def rollover_allocation(
+        guardian: str,
+        dependent: str,
+    ) -> Document:
+        PocketMoneyService._validate_dependent(guardian, dependent)
+
+        current = PocketMoneyService._get_active_allocation_for_dependent(dependent)
+
+        if current is None:
+            raise PocketMoneyAllocationNotFoundError(
+                _("No active pocket money allocation to roll over.")
+            )
+
+        dependent_doc = DependentService.get_dependent(guardian, dependent)
+        balance = PocketMoneyService.get_balance(guardian, dependent)
+        remaining = balance["remaining_amount"] if balance else 0.0
+        carry_forward = remaining if dependent_doc.allow_carry_forward and remaining > 0 else 0.0
+
+        current.is_active = 0
+        current.save()
+
+        new_allocation = PocketMoneyService.create_allocation(
+            guardian=guardian,
+            dependent=dependent,
+            allocated_amount=dependent_doc.default_monthly_allowance,
+            allocation_period=current.allocation_period,
+            allocation_date=frappe_today(),
+            carry_forward_amount=carry_forward,
+            remarks=_("Rolled over from previous period"),
+        )
+
+        logger.info(
+            "Pocket money rolled over | guardian=%s | dependent=%s | old_id=%s | new_id=%s | carried_forward=%s",
+            guardian, dependent, current.name, new_allocation.name, carry_forward,
+        )
+
+        return new_allocation
