@@ -9,7 +9,7 @@ running everything locally for development and demoing.
 - Frappe Bench installed (`pip install frappe-bench`), with its own
   prerequisites: Python 3.14+, Node.js, MariaDB, Redis, yarn/npm.
 - A Sarvam AI API key (sign up at sarvam.ai).
-- An OpenAI API key.
+- A Groq API key (sign up at console.groq.com).
 - A Telegram bot token (from @BotFather).
 - A public HTTPS URL for the webhook during local development — Telegram
   requires HTTPS, so a tunnel is needed since `localhost` isn't reachable
@@ -30,9 +30,8 @@ bench --site expense.local install-app expense_manager
 
 ```bash
 bench --site expense.local set-config sarvam_api_key "<key>"
-bench --site expense.local set-config openai_api_key "<key>"
-bench --site expense.local set-config openai_model "gpt-4o-mini"
-bench --site expense.local set-config sarvam_stt_model "saarika:v2"
+bench --site expense.local set-config groq_api_key "<key>"
+bench --site expense.local set-config groq_model "llama-3.3-70b-versatile"
 bench --site expense.local set-config telegram_bot_token "<token>"
 bench --site expense.local set-config telegram_webhook_secret "<random string>"
 ```

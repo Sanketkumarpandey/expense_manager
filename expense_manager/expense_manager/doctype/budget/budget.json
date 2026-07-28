@@ -97,8 +97,7 @@
    "fieldname": "spent_amount",
    "fieldtype": "Currency",
    "label": "Spent Amount",
-   "read_only": 1,
-   "reqd": 1
+   "read_only": 1
   },
   {
    "default": "90",
@@ -116,7 +115,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-07-27 15:48:52.576442",
+ "modified": "2026-07-28 15:35:17.694296",
  "modified_by": "Administrator",
  "module": "Expense Manager",
  "name": "Budget",

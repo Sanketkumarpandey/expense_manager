@@ -144,6 +144,7 @@ class ServiceTestCase(TestCase):
                 patch.object(mod.frappe, "get_all", return_value=[]),
                 patch.object(mod.frappe.db, "exists", return_value=None),
                 patch.object(mod.frappe.db, "get_value", return_value=None),
+                patch.object(mod.frappe.db, "sql", return_value=[]),
                 patch.object(mod.frappe, "throw", side_effect=Exception("frappe.throw")),
                 patch.object(mod.frappe, "commit", create=True),
                 patch.object(mod.frappe, "rollback", create=True),

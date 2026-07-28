@@ -1,7 +1,7 @@
 """End-to-end integration tests for Expense Manager workflows.
 
 Each test exercises multiple services working together, mocking only
-external boundaries (Sarvam AI, OpenAI, Telegram Bot API, Frappe DB/cache).
+external boundaries (Sarvam AI, Groq, Telegram Bot API, Frappe DB/cache).
 Services call through to each other — no internal service methods are mocked.
 """
 
@@ -286,9 +286,6 @@ class IntegrationTestCase(TestCase):
                         return None
                     return ALLOC_ID
 
-            if doctype == "Expense" and fieldname == "sum(amount)":
-                return spent
-
             return None
 
         # --- exists ---------------------------------------------------------
@@ -332,6 +329,15 @@ class TestVoiceToExpenseWorkflow(IntegrationTestCase):
     def setUp(self):
         super().setUp()
         self._set_frappe_side_effects(spent=0.0)
+        self._budget_patcher = patch(
+            "expense_manager.services.budget_service.BudgetService._calculate_spent_amount",
+            return_value=0.0,
+        )
+        self._budget_patcher.start()
+
+    def tearDown(self):
+        self._budget_patcher.stop()
+        super().tearDown()
 
     @patch("expense_manager.ai.speech_to_text.get_use_mock_ai_apis", return_value=True)
     @patch("expense_manager.ai.ai_parser.get_use_mock_ai_apis", return_value=True)
@@ -583,6 +589,12 @@ class TestBudgetAlertWorkflow(IntegrationTestCase):
     def setUp(self):
         super().setUp()
         self._set_frappe_side_effects(spent=0.0)
+        self._budget_patcher = None
+
+    def tearDown(self):
+        if self._budget_patcher:
+            self._budget_patcher.stop()
+        super().tearDown()
 
     def _setup_budget_mocks(self, allocated=5000.0, spent=4600.0):
         budget_doc = _make_budget_doc(spent=spent, allocated=allocated)
@@ -597,6 +609,12 @@ class TestBudgetAlertWorkflow(IntegrationTestCase):
                 return orig(*args, **kwargs)
 
             mod.frappe.get_doc.side_effect = patched_get_doc
+
+        self._budget_patcher = patch(
+            "expense_manager.services.budget_service.BudgetService._calculate_spent_amount",
+            return_value=spent,
+        )
+        self._budget_patcher.start()
 
     def test_budget_refresh_updates_spent_amount(self):
         self._setup_budget_mocks(allocated=5000.0, spent=4600.0)

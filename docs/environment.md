@@ -10,7 +10,7 @@ in source code.**
 | Key | Description | Example |
 |---|---|---|
 | `sarvam_api_key` | Sarvam AI Speech-to-Text API key | `sk_...` |
-| `openai_api_key` | OpenAI API key | `sk-...` |
+| `groq_api_key` | Groq API key for LLM expense parsing | `gsk_...` |
 | `telegram_bot_token` | Bot token from @BotFather | `123456:ABC-...` |
 | `telegram_webhook_secret` | Random string, verified against Telegram's `X-Telegram-Bot-Api-Secret-Token` header | any long random string |
 
@@ -18,19 +18,16 @@ in source code.**
 
 | Key | Description | Default |
 |---|---|---|
-| `openai_model` | GPT model used for expense parsing | `gpt-4o-mini` |
-| `sarvam_stt_model` | Sarvam AI model name | `saarika:v2` |
-| `expense_parse_language_hint` | Default language hint passed to Sarvam AI | `unknown` (auto-detect) |
+| `groq_model` | Groq model used for expense parsing | `llama-3.3-70b-versatile` |
 | `otp_expiry_minutes` | How long a `/link` token stays valid | `5` |
 | `budget_alert_threshold_pct` | Default overspend alert threshold if not set per-Budget | `90` |
-| `ai_request_timeout_seconds` | Timeout for both Sarvam AI and OpenAI calls | `30` |
-| `enable_debug_transcript_logging` | Whether raw transcripts are logged at debug level | `0` (off) |
 
 ## Setting Values
 
 ```bash
 bench --site expense.local set-config sarvam_api_key "your-key-here"
-bench --site expense.local set-config openai_model "gpt-4o-mini"
+bench --site expense.local set-config groq_api_key "your-groq-key"
+bench --site expense.local set-config groq_model "llama-3.3-70b-versatile"
 ```
 
 For values that shouldn't be world-readable in `site_config.json` on a
@@ -53,11 +50,11 @@ All config getters are centralized in `telegram/config.py`:
 - `get_telegram_bot_token()` — required
 - `get_telegram_webhook_secret()` — required
 - `get_sarvam_api_key()` — required
-- `get_openai_api_key()` — required
-- `get_openai_model()` — optional, defaults to `gpt-4o-mini`
-- `get_sarvam_stt_model()` — optional, defaults to `saarika:v2`
+- `get_groq_api_key()` — required
+- `get_groq_model()` — optional, defaults to `llama-3.3-70b-versatile`
+- `get_use_mock_ai_apis()` — optional, defaults to `False`
 
-All raise `frappe.ValidationError` if a required value is missing.
+All raise `ConfigurationError` if a required value is missing.
 
 ## Never Commit
 
@@ -71,4 +68,4 @@ All raise `frappe.ValidationError` if a required value is missing.
 For running tests and for Codex development without live keys, support a
 `use_mock_ai_apis` config flag (`0`/`1`). When `1`, `ai/speech_to_text.py`
 and `ai/ai_parser.py` return canned fixture responses instead of calling
-Sarvam AI / OpenAI. See `docs/testing_strategy.md`.
+Sarvam AI / Groq. See `docs/testing_strategy.md`.

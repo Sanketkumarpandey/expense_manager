@@ -328,17 +328,14 @@ class BudgetService:
         start_date,
         end_date,
     ) -> float:
-        total = frappe.db.get_value(
-            "Expense",
-            {
-                "owner_user": owner_user,
-                "category": category,
-                "expense_date": ["between", [start_date, end_date]],
-            },
-            "sum(amount)",
+        total = frappe.db.sql(
+            """SELECT SUM(amount) FROM `tabExpense`
+            WHERE owner_user = %s AND category = %s
+            AND expense_date BETWEEN %s AND %s""",
+            (owner_user, category, start_date, end_date),
         )
 
-        return flt(total)
+        return flt(total[0][0] if total and total[0][0] else 0)
 
     @staticmethod
     def _check_overspend(budget: Document) -> None:

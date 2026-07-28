@@ -35,7 +35,7 @@ should behave inside this repository. Read this file, and every file in
 apps/expense_manager/expense_manager/
 ├── api/            # whitelisted Frappe REST endpoints
 ├── telegram/        # bot.py, handlers/, services/, middleware/, utils/
-├── ai/               # speech_to_text.py (Sarvam AI), ai_parser.py (OpenAI GPT)
+├── ai/               # speech_to_text.py (Sarvam AI), ai_parser.py (Groq LLM)
 ├── services/         # shared business logic (expense_service, budget_service, ...)
 ├── doctype/          # Frappe DocTypes (Expense, Budget, Dependent, ...)
 ├── templates/ www/   # any user-facing web pages (optional, low priority)
@@ -48,7 +48,7 @@ apps/expense_manager/expense_manager/
 - Framework: Frappe v16 (Python 3.11+, MariaDB, Redis, Bench)
 - Bot: python-telegram-bot or raw Telegram Bot API via webhook
 - Speech-to-text: **Sarvam AI** Speech-to-Text API (see `docs/ai.md`)
-- Expense parsing: **OpenAI GPT** (gpt-4o-mini by default, see `docs/prompts.md`)
+- Expense parsing: **Groq LLM** (llama-3.3-70b-versatile by default, see `docs/prompts.md`)
 - Deployment target for this phase: **local bench** (see `docs/deployment.md`)
 
 ## 3. Definition of Done (per phase)

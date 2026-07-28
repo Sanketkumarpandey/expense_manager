@@ -41,7 +41,7 @@ expense_manager/
 │   ├── __init__.py
 │   ├── exceptions.py            # SpeechToTextError, ExpenseParseError
 │   ├── speech_to_text.py        # Sarvam audio-to-text adapter only
-│   └── ai_parser.py             # OpenAI text-to-expense JSON adapter only
+│   └── ai_parser.py             # Groq text-to-expense JSON adapter only
 ├── services/
 │   ├── exceptions.py            # Domain-facing service exceptions (15 classes)
 │   ├── expense_service.py       # Expense creation, retrieval, deletion
@@ -90,7 +90,7 @@ expense_manager/
 ├── public/                        # Client-side assets
 ├── hooks.py                       # Active scheduler_events, whitelisted methods
 ├── config.py                      # App configuration
-├── pyproject.toml                 # Dependencies (matplotlib, openai, requests)
+├── pyproject.toml                 # Dependencies (matplotlib, groq, requests)
 └── tests/
     ├── base.py                    # Shared test fixtures, Frappe mocks, _make_doc
     ├── test_expense_service.py    # 85 tests
@@ -149,7 +149,7 @@ handling, and ORM/Frappe primitives rather than raw SQL.
    Redis (24h TTL). Duplicate updates return `{"ok": true}` without another job.
 5. A unique update is passed to `frappe.enqueue` for background dispatch.
 6. The endpoint returns `{"ok": true}` immediately. It never transcribes
-   audio, calls OpenAI, creates an Expense, or sends a reply inline.
+   audio, calls Groq, creates an Expense, or sends a reply inline.
 
 This separation keeps webhook latency below Telegram's retry threshold and
 prevents duplicate processing when Telegram re-delivers an update.
@@ -214,7 +214,7 @@ ID already linked elsewhere must be unlinked before a new link can be created.
    a. Resolves identity (Individual or Dependent)
    b. `AIService.create_expense_from_audio(owner_user, file_path, dependent)`
       - `speech_to_text.transcribe(file_path)` → Sarvam AI → text
-      - `ai_parser.parse_expense(transcript, known_categories)` → OpenAI → JSON
+      - `ai_parser.parse_expense(transcript, known_categories)` → Groq → JSON
       - `ExpenseService.create_expense(...)` → Expense DocType
    c. `BudgetService.refresh_budget()` + `PocketMoneyService.refresh_balance()`
    d. Returns formatted message with optional overspend warning
@@ -273,10 +273,10 @@ and returns only a transcript. It retries network/timeouts/5xx twice with
 exponential backoff (1s, then 3s), never retries 4xx responses, and raises
 `SpeechToTextError` on final failure or empty transcription.
 
-### OpenAI GPT Expense Parsing
+### Groq LLM Expense Parsing
 
 `ai/ai_parser.py` receives a transcript and the owner's known categories. It
-uses the configured OpenAI model (default `gpt-4o-mini`) to return normalized
+uses the configured Groq model (default `llama-3.3-70b-versatile`) to return normalized
 expense data. It makes one retry for transient network/5xx failures. Malformed
 JSON receives one stricter re-prompt, not an unbounded retry.
 
@@ -324,7 +324,7 @@ Scheduled work runs via Frappe scheduler (registered in `hooks.py`):
 |---|---|
 | Telegram delivery to webhook | Telegram retries when it does not receive a fast 200; webhook acknowledgement and `update_id` deduplication make this safe. |
 | Sarvam transcription | Two retries with 1s/3s exponential backoff for network, timeout, and 5xx only. |
-| OpenAI parse | One retry after 2s for network, timeout, and 5xx only; malformed JSON gets one stricter re-prompt. |
+| Groq parse | One retry after 2s for network, timeout, and 5xx only; malformed JSON gets one stricter re-prompt. |
 | Frappe background job | Use Frappe queue failure/retry configuration; always log an exhausted failure. |
 
 No boundary retries 4xx failures.
@@ -370,13 +370,13 @@ when `enable_debug_transcript_logging` is enabled.
 
 Configuration getters are centralized in `telegram/config.py`. Required values
 are `telegram_bot_token`, `telegram_webhook_secret`, `sarvam_api_key`, and
-`openai_api_key`. All raise `frappe.ValidationError` if missing.
+`groq_api_key`. All raise `frappe.ValidationError` if missing.
 
 Supported optional values and defaults:
 
 | Key | Default |
 |---|---|
-| `openai_model` | `gpt-4o-mini` |
+| `groq_model` | `llama-3.3-70b-versatile` |
 | `sarvam_stt_model` | `saarika:v2` |
 | `expense_parse_language_hint` | `unknown` |
 | `otp_expiry_minutes` | `5` |
@@ -425,8 +425,8 @@ TelegramService → Identity: resolve Individual or Dependent
 TelegramService → AIService: create_expense_from_audio(owner_user, file_path, dependent)
 AIService → Sarvam: transcribe audio
 Sarvam → AIService: transcript
-AIService → OpenAI: parse transcript + known categories
-OpenAI → AIService: structured expense JSON
+AIService → Groq: parse transcript + known categories
+Groq → AIService: structured expense JSON
 AIService → ExpenseService: create_expense(...)
 ExpenseService → Expense DocType: validate and create
 TelegramService → BudgetService: refresh_budget()

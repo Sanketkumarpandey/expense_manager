@@ -101,8 +101,9 @@ class TestGetBalance(ServiceTestCase):
 
     def test_balance_computes_remaining(self):
         doc = self._make_doc(**SAMPLE_ALLOCATION)
-        with patch.object(frappe, "get_doc", return_value=doc), \
-             patch.object(frappe.db, "get_value", return_value=500):
+        with patch.object(PocketMoneyService, "_validate_dependent"), \
+             patch.object(PocketMoneyService, "_get_active_allocation_for_dependent", return_value=doc), \
+             patch.object(frappe.db, "sql", return_value=[(500,)]):
             result = PocketMoneyService.get_balance(SAMPLE_USER, "dep-son-001")
             self.assertIsNotNone(result)
             self.assertEqual(result["remaining_amount"], 1500)

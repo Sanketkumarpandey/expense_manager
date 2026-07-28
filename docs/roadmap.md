@@ -16,7 +16,7 @@ original phase-by-phase prompts.
 | 7 | Account linking (token-based flow) | 2026-07-22 |
 | 8 | Voice message receive/download | 2026-07-22 |
 | 9 | Sarvam AI speech-to-text integration | 2026-07-22 |
-| 10 | OpenAI GPT expense parsing (text → JSON) | 2026-07-22 |
+| 10 | Groq LLM expense parsing (text → JSON) | 2026-07-22 |
 | 11 | Expense creation from parsed JSON | 2026-07-22 |
 | 12 | Reports (Query Reports, Telegram rendering) | 2026-07-22 |
 | 13 | Budget alerts (daily scheduled job) | 2026-07-22 |

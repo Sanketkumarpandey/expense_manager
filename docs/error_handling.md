@@ -76,8 +76,8 @@ friendly message. `TelegramService` wraps all service calls and returns
 | Call | Retries | Backoff | Retry on |
 |---|---|---|---|
 | Sarvam AI transcribe | 2 | exponential (1s, 3s) | network, timeout, 5xx |
-| OpenAI GPT parse | 1 | fixed 2s | network, timeout, 5xx |
-| OpenAI malformed JSON | 1 re-prompt | n/a | schema validation failure |
+| Groq LLM parse | 1 | fixed 2s | network, timeout, 5xx |
+| Groq malformed JSON | 1 re-prompt | n/a | schema validation failure |
 | Telegram sendMessage | direct | none | n/a (raises on failure) |
 | Frappe background job | Frappe queue config | n/a | job exceptions |
 

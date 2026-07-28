@@ -12,7 +12,7 @@ apps/expense_manager/
 │   ├── api/                        # Whitelisted REST endpoints (7 modules)
 │   ├── telegram/                   # Bot: webhook, router, handlers, services, utils
 │   ├── services/                   # Business logic (8 service modules + exceptions)
-│   ├── ai/                         # Speech-to-text (Sarvam) + expense parser (OpenAI)
+│   ├── ai/                         # Speech-to-text (Sarvam) + expense parser (Groq)
 │   ├── jobs/                       # Scheduled background jobs (4 modules)
 │   ├── constants/                  # Enums and static data (9 modules)
 │   ├── report/                     # Frappe Query Reports (5 reports)
@@ -125,7 +125,7 @@ Fully implemented:
   savings, rollover, profile, settings, unknown
 - **TelegramService**: Orchestrator that resolves Telegram identity, enforces
   persona checks, and delegates to business services
-- **AI Pipeline**: Voice note → Sarvam STT → OpenAI GPT → ExpenseService
+- **AI Pipeline**: Voice note → Sarvam STT → Groq LLM → ExpenseService
 
 ## 9. Test Suite
 
@@ -157,7 +157,7 @@ All core features are implemented and tested:
 - ✅ Eight business services with typed exceptions
 - ✅ REST API (7 modules, all whitelisted methods)
 - ✅ Telegram bot (webhook, router, 15 commands, voice processing)
-- ✅ AI pipeline (Sarvam STT + OpenAI GPT)
+- ✅ AI pipeline (Sarvam STT + Groq LLM)
 - ✅ Scheduled jobs (budget alerts, reminders, rollover)
 - ✅ Five Query Reports
 - ✅ 290 passing tests

@@ -3,6 +3,8 @@ Does NOT do any expense parsing."""
 
 from __future__ import annotations
 
+import mimetypes
+import os
 import time
 
 import requests
@@ -23,26 +25,31 @@ def transcribe(file_path: str, language_hint: str | None = None) -> str:
     for attempt in range(SpeechToTextConfig.MAX_RETRIES + 1):
         started_at = time.monotonic()
         try:
+            filename = os.path.basename(file_path)
+            content_type = mimetypes.guess_type(filename)[0] or "audio/ogg"
             with open(file_path, "rb") as audio_file:
                 response = requests.post(
                     SpeechToTextConfig.ENDPOINT,
                     headers={"api-subscription-key": get_sarvam_api_key()},
-                    files={"file": audio_file},
+                    files={"file": (filename, audio_file, content_type)},
                     data={
                         "model": SpeechToTextConfig.MODEL,
+                        "mode": SpeechToTextConfig.MODE,
                         "language_code": language_hint or SpeechToTextConfig.DEFAULT_LANGUAGE_CODE,
                     },
                     timeout=SpeechToTextConfig.TIMEOUT_SECONDS,
                 )
 
             if 400 <= response.status_code < 500:
+                error_body = response.text[:500]
                 logger.info(
-                    "sarvam_transcribe status=client_error code=%s latency_ms=%d",
+                    "sarvam_transcribe status=client_error code=%s body=%s latency_ms=%d",
                     response.status_code,
+                    error_body,
                     int((time.monotonic() - started_at) * 1000),
                 )
                 raise SpeechTranscriptionError(
-                    f"Sarvam AI rejected the audio (status {response.status_code})."
+                    f"Sarvam AI rejected the audio (status {response.status_code}): {error_body}"
                 )
 
             response.raise_for_status()

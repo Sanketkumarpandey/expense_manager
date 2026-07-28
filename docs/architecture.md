@@ -33,7 +33,7 @@ without change.
 | `telegram/services/telegram_service.py` | Resolve Telegram identity, enforce persona, delegate to business services, return structured result | Direct DB persistence |
 | `services/*.py` | Business logic, ORM operations, validation | Talking to Telegram directly |
 | `ai/speech_to_text.py` | Sarvam AI: audio → text | Business logic, expense parsing |
-| `ai/ai_parser.py` | OpenAI GPT: text → structured Expense JSON | DB writes |
+| `ai/ai_parser.py` | Groq LLM: text → structured Expense JSON | DB writes |
 | `api/*.py` | Whitelisted `@frappe.whitelist()` methods, scoped to `frappe.session.user` | Direct Telegram formatting |
 | `jobs/*.py` | Scheduled background jobs (daily), orchestrate look-up and dispatch | Business rule reimplementation |
 | `doctype/*` | DocType schema, field-level validation | AI calls, Telegram calls |
@@ -71,7 +71,7 @@ parameter and validates ownership before any database operation.
      - calls AIService.create_expense_from_audio(owner_user, file_path, dependent)
 5. AIService:
      - calls ai/speech_to_text.transcribe(file_path) → Sarvam AI → text
-     - calls ai/ai_parser.parse_expense(transcript, known_categories) → OpenAI → JSON
+     - calls ai/ai_parser.parse_expense(transcript, known_categories) → Groq → JSON
      - resolves category (match or create "Uncategorized" fallback)
      - calls ExpenseService.create_expense(...) → Expense DocType
      - returns expense + message
@@ -104,7 +104,7 @@ parameter and validates ownership before any database operation.
 ## 6. Sequence Diagram — Voice Expense
 
 ```
-User        Telegram        Webhook        Router      VoiceHandler   TelegramService  AIService   SarvamAI   OpenAI   ExpenseService
+User        Telegram        Webhook        Router      VoiceHandler   TelegramService  AIService   SarvamAI   Groq     ExpenseService
  |  voice      |               |              |             |              |              |          |          |            |
  |------------>|               |              |             |              |              |          |          |            |
  |             | POST update   |              |             |              |              |          |          |            |

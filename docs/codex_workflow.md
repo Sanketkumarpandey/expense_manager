@@ -60,7 +60,7 @@ Create telegram_architecture.md including:
 - Retry policy
 - Security
 - Logging
-- AI integration (Sarvam AI + OpenAI GPT)
+- AI integration (Sarvam AI + Groq LLM)
 - Frappe integration
 - Sequence diagrams
 ```
@@ -103,14 +103,14 @@ docs/coding_guidelines.md. No implementation logic yet.
 Implement configuration reading per docs/environment.md.
 
 Requirements:
-- Store bot token, Sarvam AI key, OpenAI key securely (site config /
+- Store bot token, Sarvam AI key, Groq key securely (site config /
   environment variables, never hardcoded)
 - Support a use_mock_ai_apis flag for tests/dev
 - Never hardcode secrets
 
 Create telegram/config.py (or extend config.py) with getter functions:
 get_telegram_bot_token(), get_telegram_webhook_secret(),
-get_sarvam_api_key(), get_openai_api_key(), get_openai_model().
+get_sarvam_api_key(), get_groq_api_key(), get_groq_model().
 
 Update hooks.py if required. Do not implement handlers yet.
 ```
@@ -176,10 +176,10 @@ use_mock_ai_apis for tests. Unit tests against mocked HTTP responses only
 — never call the live API in tests.
 ```
 
-### Phase 10 — OpenAI GPT Expense Parsing
+### Phase 10 — Groq LLM Expense Parsing
 
 ```
-Integrate OpenAI GPT per docs/ai.md §2 and docs/prompts.md.
+Integrate Groq LLM per docs/ai.md §2 and docs/prompts.md.
 
 Implement ai/ai_parser.py: parse_expense(text, known_categories) → dict,
 using the exact prompt and JSON schema in docs/prompts.md, plus

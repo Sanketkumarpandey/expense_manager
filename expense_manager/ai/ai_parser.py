@@ -1,14 +1,14 @@
-"""OpenAI GPT adapter: transcribed text -> structured expense dict.
+"""Groq LLM adapter: transcribed text -> structured expense dict.
 Does NOT write to the database."""
 
 from __future__ import annotations
 
 import json
 
-from openai import OpenAI
+from groq import Groq
 from frappe.utils import getdate, today
 
-from expense_manager.telegram.config import get_openai_api_key, get_openai_model, get_use_mock_ai_apis
+from expense_manager.telegram.config import get_groq_api_key, get_groq_model, get_use_mock_ai_apis
 from expense_manager.ai.exceptions import ExpenseParsingError
 from expense_manager.constants.ai import ExpenseParsingConfig
 from expense_manager.utils.logger import logger
@@ -16,7 +16,7 @@ from expense_manager.utils.logger import logger
 
 def parse_expense(text: str, known_categories: list[str]) -> dict:
     if get_use_mock_ai_apis():
-        logger.info("openai_parse status=mocked")
+        logger.info("groq_parse status=mocked")
         fallback = known_categories[0] if known_categories else ExpenseParsingConfig.FALLBACK_CATEGORY
         return {
             "amount": 200.0,
@@ -25,12 +25,12 @@ def parse_expense(text: str, known_categories: list[str]) -> dict:
             "expense_date": today(),
         }
 
-    client = OpenAI(api_key=get_openai_api_key())
+    client = Groq(api_key=get_groq_api_key())
 
     for attempt in range(ExpenseParsingConfig.MAX_RETRIES + 1):
         try:
             response = client.chat.completions.create(
-                model=get_openai_model(),
+                model=get_groq_model(),
                 response_format={"type": "json_object"},
                 messages=_build_prompt(text, known_categories),
                 timeout=ExpenseParsingConfig.TIMEOUT_SECONDS,
@@ -40,17 +40,24 @@ def parse_expense(text: str, known_categories: list[str]) -> dict:
 
         except ExpenseParsingError:
             if attempt < ExpenseParsingConfig.MAX_RETRIES:
-                logger.info("openai_parse status=retry attempt=%d", attempt + 1)
+                logger.info("groq_parse status=retry attempt=%d", attempt + 1)
                 continue
             raise
 
         except Exception as exc:
+            logger.info(
+                "groq_parse status=error attempt=%d exc_type=%s exc=%s",
+                attempt + 1,
+                type(exc).__name__,
+                exc,
+            )
             if attempt < ExpenseParsingConfig.MAX_RETRIES:
-                logger.info("openai_parse status=error_retry attempt=%d", attempt + 1)
                 continue
-            raise ExpenseParsingError("OpenAI expense parsing failed.") from exc
+            raise ExpenseParsingError(
+                f"Groq expense parsing failed: {type(exc).__name__}: {exc}"
+            ) from exc
 
-    raise ExpenseParsingError("OpenAI expense parsing failed after retries.")
+    raise ExpenseParsingError("Groq expense parsing failed after retries.")
 
 
 def _build_prompt(text: str, known_categories: list[str]) -> list[dict]:
@@ -74,23 +81,23 @@ def _build_prompt(text: str, known_categories: list[str]) -> list[dict]:
 
 def _validate_expense_json(raw: str | None, known_categories: list[str]) -> dict:
     if not raw:
-        raise ExpenseParsingError("OpenAI returned an empty response.")
+        raise ExpenseParsingError("Groq returned an empty response.")
 
     try:
         data = json.loads(raw)
     except (TypeError, ValueError) as exc:
-        raise ExpenseParsingError("OpenAI returned invalid JSON.") from exc
+        raise ExpenseParsingError("Groq returned invalid JSON.") from exc
 
     if not isinstance(data, dict):
-        raise ExpenseParsingError("OpenAI response was not a JSON object.")
+        raise ExpenseParsingError("Groq response was not a JSON object.")
 
     missing = [key for key in ExpenseParsingConfig.REQUIRED_KEYS if key not in data]
     if missing:
-        raise ExpenseParsingError(f"OpenAI response missing keys: {missing}.")
+        raise ExpenseParsingError(f"Groq response missing keys: {missing}.")
 
     amount = data.get("amount")
     if not isinstance(amount, (int, float)) or amount <= 0:
-        raise ExpenseParsingError("OpenAI returned an invalid amount.")
+        raise ExpenseParsingError("Groq returned an invalid amount.")
 
     category = data.get("category")
     if category not in known_categories and category != ExpenseParsingConfig.FALLBACK_CATEGORY:

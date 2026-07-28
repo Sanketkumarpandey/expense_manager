@@ -51,7 +51,7 @@ Idempotent: unlinking an already-unlinked user is a no-op.
    a. Resolves identity (Individual or Dependent)
    b. AIService.create_expense_from_audio(owner_user, file_path, dependent)
       - speech_to_text.transcribe(file_path) → Sarvam AI → text
-      - ai_parser.parse_expense(transcript, known_categories) → OpenAI → JSON
+      - ai_parser.parse_expense(transcript, known_categories) → Groq → JSON
       - ExpenseService.create_expense(...) → Expense DocType
    c. BudgetService.refresh_budget() + PocketMoneyService.refresh_balance()
    d. Returns formatted message with optional overspend warning

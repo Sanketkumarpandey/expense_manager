@@ -66,7 +66,7 @@ through Telegram.
 | FR-1 | Create/edit/delete expense categories | Must |
 | FR-2 | Set a per-category monthly budget | Must |
 | FR-3 | Overspend notification (Telegram) when a category exceeds budget | Must |
-| FR-4 | Voice note → transcription (Sarvam AI) → structured parse (OpenAI GPT) → Expense record | Must |
+| FR-4 | Voice note → transcription (Sarvam AI) → structured parse (Groq LLM) → Expense record | Must |
 | FR-5 | Text-based manual expense entry as a fallback | Must |
 | FR-6 | Add/manage Dependents, each with their own Telegram link | Must |
 | FR-7 | Allocate & track monthly pocket money per Dependent | Must |

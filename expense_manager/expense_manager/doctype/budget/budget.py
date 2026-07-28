@@ -51,11 +51,11 @@ class Budget(Document):
             frappe.throw(_("End Date is required."))
 
     def validate_allocated_amount(self):
-        if self.allocated_amount <= 0:
+        if self.allocated_amount is not None and self.allocated_amount <= 0:
             frappe.throw(_("Allocated Amount must be greater than zero."))
 
     def validate_spent_amount(self):
-        if self.spent_amount < 0:
+        if self.spent_amount is not None and self.spent_amount < 0:
             frappe.throw(_("Spent Amount cannot be negative."))
 
     def validate_alert_threshold(self):

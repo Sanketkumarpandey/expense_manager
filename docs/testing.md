@@ -51,7 +51,7 @@ provides:
 
 ## Mocking External APIs
 
-Never call live Sarvam AI or OpenAI APIs in tests. The AI modules are
+Never call live Sarvam AI or Groq APIs in tests. The AI modules are
 tested against mocked HTTP responses. Service-layer tests mock
 `frappe.get_doc`, `frappe.db.exists`, `frappe.db.get_value` at the
 module level.

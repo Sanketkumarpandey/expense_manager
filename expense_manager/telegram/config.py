@@ -13,7 +13,7 @@ import frappe
 from expense_manager.config.exceptions import ConfigurationError
 
 
-_DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
+_DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _FALSE_VALUES = frozenset({"0", "false", "no", "off", ""})
 
@@ -53,21 +53,21 @@ def get_sarvam_api_key() -> str:
 
 
 @lru_cache(maxsize=1)
-def get_openai_api_key() -> str:
-	"""Return the required OpenAI API key; never log or expose it."""
-	return _get_required_string("OPENAI_API_KEY", "openai_api_key")
+def get_groq_api_key() -> str:
+	"""Return the required Groq API key; never log or expose it."""
+	return _get_required_string("GROQ_API_KEY", "groq_api_key")
 
 
 @lru_cache(maxsize=1)
-def get_openai_model() -> str:
-	"""Return the configured OpenAI model or the documented default model."""
-	value = _get_config_value("OPENAI_MODEL", "openai_model")
+def get_groq_model() -> str:
+	"""Return the configured Groq model or the documented default model."""
+	value = _get_config_value("GROQ_MODEL", "groq_model")
 	if value is None:
-		return _DEFAULT_OPENAI_MODEL
+		return _DEFAULT_GROQ_MODEL
 	if not isinstance(value, str) or not value.strip():
 		raise ConfigurationError(
-			"Invalid configuration 'openai_model'. Set OPENAI_MODEL or "
-			"openai_model in site_config.json to a non-empty model name."
+			"Invalid configuration 'groq_model'. Set GROQ_MODEL or "
+			"groq_model in site_config.json to a non-empty model name."
 		)
 	return value.strip()
 

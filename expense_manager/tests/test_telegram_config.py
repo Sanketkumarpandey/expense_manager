@@ -26,18 +26,18 @@ class TestTelegramConfig(TestCase):
 				os.environ,
 				{
 					"TELEGRAM_BOT_TOKEN": "environment-token",
-					"OPENAI_MODEL": "environment-model",
+					"GROQ_MODEL": "environment-model",
 				},
 				clear=True,
 			),
 			patch.object(
 				config.frappe,
 				"conf",
-				{"telegram_bot_token": "site-token", "openai_model": "site-model"},
+				{"telegram_bot_token": "site-token", "groq_model": "site-model"},
 			),
 		):
 			self.assertEqual(config.get_telegram_bot_token(), "environment-token")
-			self.assertEqual(config.get_openai_model(), "environment-model")
+			self.assertEqual(config.get_groq_model(), "environment-model")
 
 	def test_site_configuration_and_defaults_are_supported(self) -> None:
 		"""Read site configuration and use documented defaults when optional."""
@@ -47,7 +47,7 @@ class TestTelegramConfig(TestCase):
 			{"telegram_webhook_secret": "site-secret", "use_mock_ai_apis": 1},
 		):
 			self.assertEqual(config.get_telegram_webhook_secret(), "site-secret")
-			self.assertEqual(config.get_openai_model(), "gpt-4o-mini")
+			self.assertEqual(config.get_groq_model(), "llama-3.3-70b-versatile")
 			self.assertTrue(config.get_use_mock_ai_apis())
 
 		self._clear_configuration_cache()
@@ -63,13 +63,13 @@ class TestTelegramConfig(TestCase):
 				"telegram_bot_token": "bot-value",
 				"telegram_webhook_secret": "webhook-value",
 				"sarvam_api_key": "sarvam-value",
-				"openai_api_key": "openai-value",
+				"groq_api_key": "groq-value",
 			},
 		):
 			self.assertEqual(config.get_telegram_bot_token(), "bot-value")
 			self.assertEqual(config.get_telegram_webhook_secret(), "webhook-value")
 			self.assertEqual(config.get_sarvam_api_key(), "sarvam-value")
-			self.assertEqual(config.get_openai_api_key(), "openai-value")
+			self.assertEqual(config.get_groq_api_key(), "groq-value")
 
 	def test_missing_required_value_has_a_safe_descriptive_error(self) -> None:
 		"""Reject absent credentials without placing a credential in the error."""
@@ -92,8 +92,8 @@ class TestTelegramConfig(TestCase):
 			config.get_telegram_bot_token,
 			config.get_telegram_webhook_secret,
 			config.get_sarvam_api_key,
-			config.get_openai_api_key,
-			config.get_openai_model,
+			config.get_groq_api_key,
+			config.get_groq_model,
 			config.get_use_mock_ai_apis,
 		):
 			getter.cache_clear()

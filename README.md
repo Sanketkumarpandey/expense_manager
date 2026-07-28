@@ -25,7 +25,7 @@ Telegram voice note
       ↓
 Sarvam AI (speech → text)
       ↓
-OpenAI GPT (text → structured Expense JSON)
+Groq LLM (text → structured Expense JSON)
       ↓
 ExpenseService.create_expense() → Expense DocType
       ↓
@@ -41,7 +41,7 @@ Reply to user with summary (+ overspend warning if applicable)
 | Backend framework   | Frappe v16 (Python 3.14+, MariaDB, Redis, Bench) |
 | Bot interface       | Telegram Bot API (webhook-based)           |
 | Speech-to-text      | Sarvam AI Speech-to-Text API                |
-| Text → structured JSON | OpenAI GPT (gpt-4o-mini default)        |
+| Text → structured JSON | Groq LLM (llama-3.3-70b-versatile default)        |
 | Reporting           | Frappe Query Reports + matplotlib/PNG      |
 | Deployment          | Local bench (see `docs/deployment.md`)     |
 
@@ -78,7 +78,7 @@ expense_manager/
 │   └── exceptions.py       # Typed domain exceptions
 ├── ai/                     # External AI integrations
 │   ├── speech_to_text.py   # Sarvam AI adapter
-│   ├── ai_parser.py        # OpenAI GPT adapter
+│   ├── ai_parser.py        # Groq LLM adapter
 │   └── exceptions.py       # AI-specific exceptions
 ├── jobs/                   # Scheduled background jobs
 │   ├── budget_alerts.py    # Daily overspend notifications
@@ -101,7 +101,7 @@ expense_manager/
 | [`docs/doctypes.md`](docs/doctypes.md) | Every DocType, field, relationship, validation |
 | [`docs/telegram.md`](docs/telegram.md) | Telegram bot design |
 | [`docs/telegram_commands.md`](docs/telegram_commands.md) | Flow for every bot command |
-| [`docs/ai.md`](docs/ai.md) | Sarvam AI + OpenAI GPT integration |
+| [`docs/ai.md`](docs/ai.md) | Sarvam AI + Groq LLM integration |
 | [`docs/webhook.md`](docs/webhook.md) | Webhook lifecycle, security, deduplication |
 | [`docs/database.md`](docs/database.md) | Schema overview |
 | [`docs/error_handling.md`](docs/error_handling.md) | Retries, logging, recovery |
@@ -123,7 +123,7 @@ See `docs/deployment.md` for the full walkthrough. Quick version:
 bench get-app expense_manager <repo_url>
 bench --site mysite.local install-app expense_manager
 bench --site mysite.local set-config sarvam_api_key "..."
-bench --site mysite.local set-config openai_api_key "..."
+bench --site mysite.local set-config groq_api_key "..."
 bench --site mysite.local set-config telegram_bot_token "..."
 bench --site mysite.local set-config telegram_webhook_secret "..."
 bench start

@@ -87,7 +87,7 @@ via Bot API); no additional size handling needed beyond a sanity check.
 |---|---|
 | Telegram → our webhook | Telegram retries automatically if we don't 200 fast; we must respond within a few seconds regardless of processing time |
 | Our webhook → Sarvam AI | 2 retries, exponential backoff (1s, 3s), only on network/5xx errors |
-| Our webhook → OpenAI GPT | 1 retry on network/5xx; malformed JSON triggers a stricter re-prompt, not a raw retry |
+| Our webhook → Groq LLM | 1 retry on network/5xx; malformed JSON triggers a stricter re-prompt, not a raw retry |
 | Background job failure | Logged via `frappe.logger`; user gets a friendly failure reply; job is not silently dropped |
 
 Full error-to-user-message mapping: `docs/error_handling.md`.

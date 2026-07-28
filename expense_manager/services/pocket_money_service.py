@@ -422,17 +422,14 @@ class PocketMoneyService:
         start_date,
         end_date,
     ) -> float:
-        total = frappe.db.get_value(
-            "Expense",
-            {
-                "owner_user": owner_user,
-                "dependent": dependent,
-                "expense_date": ["between", [start_date, end_date]],
-            },
-            "sum(amount)",
+        total = frappe.db.sql(
+            """SELECT SUM(amount) FROM `tabExpense`
+            WHERE owner_user = %s AND dependent = %s
+            AND expense_date BETWEEN %s AND %s""",
+            (owner_user, dependent, start_date, end_date),
         )
 
-        return flt(total)
+        return flt(total[0][0] if total and total[0][0] else 0)
 
     @staticmethod
     def get_period_end_date(allocation_date, allocation_period: str):

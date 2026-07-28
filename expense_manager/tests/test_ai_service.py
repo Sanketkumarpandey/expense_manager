@@ -38,8 +38,8 @@ class TestParseExpenseMockMode:
 class TestParseExpenseRealMode:
 
     @patch("expense_manager.ai.ai_parser.get_use_mock_ai_apis", return_value=False)
-    @patch("expense_manager.ai.ai_parser.get_openai_api_key", return_value="test-key")
-    @patch("expense_manager.ai.ai_parser.get_openai_model", return_value="gpt-4o-mini")
+    @patch("expense_manager.ai.ai_parser.get_groq_api_key", return_value="test-key")
+    @patch("expense_manager.ai.ai_parser.get_groq_model", return_value="llama-3.3-70b-versatile")
     def test_successful_parse(self, _mock_model, _mock_key, _mock_api):
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
@@ -53,15 +53,15 @@ class TestParseExpenseRealMode:
         mock_client = MagicMock()
         mock_client.chat.completions.create.return_value = mock_response
 
-        with patch("expense_manager.ai.ai_parser.OpenAI", return_value=mock_client):
+        with patch("expense_manager.ai.ai_parser.Groq", return_value=mock_client):
             result = parse_expense("I spent 150 on lunch", ["Food", "Transport"])
             self.assertEqual(result["amount"], 150.0)
             self.assertEqual(result["category"], "Food")
             self.assertEqual(result["description"], "Lunch at cafe")
 
     @patch("expense_manager.ai.ai_parser.get_use_mock_ai_apis", return_value=False)
-    @patch("expense_manager.ai.ai_parser.get_openai_api_key", return_value="test-key")
-    @patch("expense_manager.ai.ai_parser.get_openai_model", return_value="gpt-4o-mini")
+    @patch("expense_manager.ai.ai_parser.get_groq_api_key", return_value="test-key")
+    @patch("expense_manager.ai.ai_parser.get_groq_model", return_value="llama-3.3-70b-versatile")
     def test_empty_response_raises(self, _mock_model, _mock_key, _mock_api):
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
@@ -70,13 +70,13 @@ class TestParseExpenseRealMode:
         mock_client = MagicMock()
         mock_client.chat.completions.create.return_value = mock_response
 
-        with patch("expense_manager.ai.ai_parser.OpenAI", return_value=mock_client):
+        with patch("expense_manager.ai.ai_parser.Groq", return_value=mock_client):
             with self.assertRaises(ExpenseParsingError):
                 parse_expense("test", ["Food"])
 
     @patch("expense_manager.ai.ai_parser.get_use_mock_ai_apis", return_value=False)
-    @patch("expense_manager.ai.ai_parser.get_openai_api_key", return_value="test-key")
-    @patch("expense_manager.ai.ai_parser.get_openai_model", return_value="gpt-4o-mini")
+    @patch("expense_manager.ai.ai_parser.get_groq_api_key", return_value="test-key")
+    @patch("expense_manager.ai.ai_parser.get_groq_model", return_value="llama-3.3-70b-versatile")
     def test_invalid_json_raises(self, _mock_model, _mock_key, _mock_api):
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
@@ -85,13 +85,13 @@ class TestParseExpenseRealMode:
         mock_client = MagicMock()
         mock_client.chat.completions.create.return_value = mock_response
 
-        with patch("expense_manager.ai.ai_parser.OpenAI", return_value=mock_client):
+        with patch("expense_manager.ai.ai_parser.Groq", return_value=mock_client):
             with self.assertRaises(ExpenseParsingError):
                 parse_expense("test", ["Food"])
 
     @patch("expense_manager.ai.ai_parser.get_use_mock_ai_apis", return_value=False)
-    @patch("expense_manager.ai.ai_parser.get_openai_api_key", return_value="test-key")
-    @patch("expense_manager.ai.ai_parser.get_openai_model", return_value="gpt-4o-mini")
+    @patch("expense_manager.ai.ai_parser.get_groq_api_key", return_value="test-key")
+    @patch("expense_manager.ai.ai_parser.get_groq_model", return_value="llama-3.3-70b-versatile")
     def test_non_dict_json_raises(self, _mock_model, _mock_key, _mock_api):
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
@@ -100,13 +100,13 @@ class TestParseExpenseRealMode:
         mock_client = MagicMock()
         mock_client.chat.completions.create.return_value = mock_response
 
-        with patch("expense_manager.ai.ai_parser.OpenAI", return_value=mock_client):
+        with patch("expense_manager.ai.ai_parser.Groq", return_value=mock_client):
             with self.assertRaises(ExpenseParsingError):
                 parse_expense("test", ["Food"])
 
     @patch("expense_manager.ai.ai_parser.get_use_mock_ai_apis", return_value=False)
-    @patch("expense_manager.ai.ai_parser.get_openai_api_key", return_value="test-key")
-    @patch("expense_manager.ai.ai_parser.get_openai_model", return_value="gpt-4o-mini")
+    @patch("expense_manager.ai.ai_parser.get_groq_api_key", return_value="test-key")
+    @patch("expense_manager.ai.ai_parser.get_groq_model", return_value="llama-3.3-70b-versatile")
     def test_missing_keys_raises(self, _mock_model, _mock_key, _mock_api):
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
@@ -117,13 +117,13 @@ class TestParseExpenseRealMode:
         mock_client = MagicMock()
         mock_client.chat.completions.create.return_value = mock_response
 
-        with patch("expense_manager.ai.ai_parser.OpenAI", return_value=mock_client):
+        with patch("expense_manager.ai.ai_parser.Groq", return_value=mock_client):
             with self.assertRaises(ExpenseParsingError):
                 parse_expense("test", ["Food"])
 
     @patch("expense_manager.ai.ai_parser.get_use_mock_ai_apis", return_value=False)
-    @patch("expense_manager.ai.ai_parser.get_openai_api_key", return_value="test-key")
-    @patch("expense_manager.ai.ai_parser.get_openai_model", return_value="gpt-4o-mini")
+    @patch("expense_manager.ai.ai_parser.get_groq_api_key", return_value="test-key")
+    @patch("expense_manager.ai.ai_parser.get_groq_model", return_value="llama-3.3-70b-versatile")
     def test_zero_amount_raises(self, _mock_model, _mock_key, _mock_api):
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
@@ -137,13 +137,13 @@ class TestParseExpenseRealMode:
         mock_client = MagicMock()
         mock_client.chat.completions.create.return_value = mock_response
 
-        with patch("expense_manager.ai.ai_parser.OpenAI", return_value=mock_client):
+        with patch("expense_manager.ai.ai_parser.Groq", return_value=mock_client):
             with self.assertRaises(ExpenseParsingError):
                 parse_expense("test", ["Food"])
 
     @patch("expense_manager.ai.ai_parser.get_use_mock_ai_apis", return_value=False)
-    @patch("expense_manager.ai.ai_parser.get_openai_api_key", return_value="test-key")
-    @patch("expense_manager.ai.ai_parser.get_openai_model", return_value="gpt-4o-mini")
+    @patch("expense_manager.ai.ai_parser.get_groq_api_key", return_value="test-key")
+    @patch("expense_manager.ai.ai_parser.get_groq_model", return_value="llama-3.3-70b-versatile")
     def test_unknown_category_becomes_fallback(self, _mock_model, _mock_key, _mock_api):
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
@@ -157,7 +157,7 @@ class TestParseExpenseRealMode:
         mock_client = MagicMock()
         mock_client.chat.completions.create.return_value = mock_response
 
-        with patch("expense_manager.ai.ai_parser.OpenAI", return_value=mock_client):
+        with patch("expense_manager.ai.ai_parser.Groq", return_value=mock_client):
             result = parse_expense("test", ["Food", "Transport"])
             self.assertEqual(result["category"], ExpenseParsingConfig.FALLBACK_CATEGORY)
 

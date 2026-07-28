@@ -59,7 +59,7 @@
 - Every new Telegram handler needs a test that feeds it a mocked Update
   object and asserts the service call + reply.
 - AI modules (`ai/*`) are tested against mocked HTTP responses — never
-  against the live Sarvam AI / OpenAI APIs in CI.
+  against the live Sarvam AI / Groq APIs in CI.
 - All service tests inherit from `ServiceTestCase` in `tests/base.py`.
 - See `docs/testing.md` and `docs/testing_strategy.md`.
 

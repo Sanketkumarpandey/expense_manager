@@ -82,7 +82,7 @@ A phase is not done if `bench run-tests` doesn't pass cleanly.
 
 ## What's Explicitly Not Tested Automatically
 
-- Actual Sarvam AI / OpenAI accuracy (manual/product concern)
+- Actual Sarvam AI / Groq accuracy (manual/product concern)
 - Telegram's own delivery guarantees
 - Load/performance testing
 - Production deployment concerns

@@ -1,6 +1,7 @@
 class SpeechToTextConfig:
     ENDPOINT = "https://api.sarvam.ai/speech-to-text"
     MODEL = "saaras:v3"
+    MODE = "transcribe"
     DEFAULT_LANGUAGE_CODE = "unknown"
     TIMEOUT_SECONDS = 30
     MAX_RETRIES = 2

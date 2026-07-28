@@ -1,6 +1,6 @@
 # Prompt Templates & JSON Schemas
 
-All GPT calls use OpenAI's JSON mode (`response_format={"type": "json_object"}`)
+All LLM calls use Groq's JSON mode (`response_format={"type": "json_object"}`)
 so responses are guaranteed parseable JSON — no markdown fences to strip.
 
 ## 1. Expense Extraction Prompt
