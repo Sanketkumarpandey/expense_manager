@@ -19,9 +19,9 @@ in source code.**
 | Key | Description | Default |
 |---|---|---|
 | `openai_model` | GPT model used for expense parsing | `gpt-4o-mini` |
-| `sarvam_stt_model` | Sarvam AI model name (confirm current value in their docs) | `saarika:v2` |
+| `sarvam_stt_model` | Sarvam AI model name | `saarika:v2` |
 | `expense_parse_language_hint` | Default language hint passed to Sarvam AI | `unknown` (auto-detect) |
-| `otp_expiry_minutes` | How long a `/link` OTP stays valid | `5` |
+| `otp_expiry_minutes` | How long a `/link` token stays valid | `5` |
 | `budget_alert_threshold_pct` | Default overspend alert threshold if not set per-Budget | `90` |
 | `ai_request_timeout_seconds` | Timeout for both Sarvam AI and OpenAI calls | `30` |
 | `enable_debug_transcript_logging` | Whether raw transcripts are logged at debug level | `0` (off) |
@@ -29,8 +29,8 @@ in source code.**
 ## Setting Values
 
 ```bash
-bench --site mysite.local set-config sarvam_api_key "your-key-here"
-bench --site mysite.local set-config openai_model "gpt-4o-mini"
+bench --site expense.local set-config sarvam_api_key "your-key-here"
+bench --site expense.local set-config openai_model "gpt-4o-mini"
 ```
 
 For values that shouldn't be world-readable in `site_config.json` on a
@@ -45,6 +45,19 @@ def get_sarvam_api_key() -> str:
 (Precedence: environment variable wins over site config, so the same
 codebase works locally and in any future hosted environment without
 code changes.)
+
+## Configuration Getters
+
+All config getters are centralized in `telegram/config.py`:
+
+- `get_telegram_bot_token()` — required
+- `get_telegram_webhook_secret()` — required
+- `get_sarvam_api_key()` — required
+- `get_openai_api_key()` — required
+- `get_openai_model()` — optional, defaults to `gpt-4o-mini`
+- `get_sarvam_stt_model()` — optional, defaults to `saarika:v2`
+
+All raise `frappe.ValidationError` if a required value is missing.
 
 ## Never Commit
 

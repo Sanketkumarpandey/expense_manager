@@ -48,6 +48,7 @@ class Dependent(Document):
             "Dependent",
             {
                 "dependent_name": self.dependent_name,
+                "guardian": self.guardian,
                 "name": ["!=", self.name],
             },
         )

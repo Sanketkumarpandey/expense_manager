@@ -1,7 +1,6 @@
 {
  "actions": [],
  "allow_bulk_edit": 1,
- "allow_rename": 1,
  "autoname": "hash",
  "creation": "2026-07-23 10:59:31.756400",
  "doctype": "DocType",

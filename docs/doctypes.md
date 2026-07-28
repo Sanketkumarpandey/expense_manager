@@ -2,7 +2,8 @@
 
 Conventions: `Link` fields reference another DocType by name. `Select`
 fields list their options. Required fields are marked **(required)**.
-Every DocType listed here needs a matching entry in `docs/testing.md`.
+All DocTypes are restricted to **System Manager** role only in Desk.
+Ownership is enforced at the service layer.
 
 ---
 
@@ -12,15 +13,18 @@ Represents an expense category (Food, Medical, Travel, ...).
 
 | Field | Type | Notes |
 |---|---|---|
-| `category_name` | Data | **(required)**, unique per owner |
+| `category_name` | Data | **(required)**, unique per `owner_user` (case-insensitive) |
 | `owner_user` | Link → User | **(required)** — the Individual who created it |
-| `icon` | Data | optional, emoji or icon key for Telegram replies |
+| `icon` | Data | optional, emoji or icon key |
 | `is_active` | Check | default 1 |
 
-**Validation**: `category_name` unique per `owner_user` (case-insensitive).
+**Validation**: `category_name` unique per `owner_user` (case-insensitive,
+whitespace-normalized, title-cased). Cannot delete if referenced by an
+Expense or Budget.
 
-**Permissions**: Individual: full CRUD on their own Categories. Dependent:
-read-only, scoped to their linked Individual's categories.
+**Seed data**: Default categories created via
+`CategoryService.create_default_categories()`: Food, Travel, Medical,
+Utilities, Shopping, Entertainment, Uncategorized.
 
 ---
 
@@ -30,20 +34,23 @@ Monthly allocation per Category.
 
 | Field | Type | Notes |
 |---|---|---|
-| `category` | Link → Category | **(required)** |
-| `month` | Data (YYYY-MM) | **(required)** |
-| `allocated_amount` | Currency | **(required)**, > 0 |
-| `spent_amount` | Currency (read-only, computed) | sum of linked Expenses this month |
 | `owner_user` | Link → User | **(required)** |
-| `alert_threshold_pct` | Int | default 90 — trigger a warning before full overspend |
+| `category` | Link → Category | **(required)** |
+| `allocated_amount` | Currency | **(required)**, > 0 |
+| `spent_amount` | Currency (read-only) | recomputed by `BudgetService.refresh_budget()` |
+| `period` | Select | Weekly / Monthly / Quarterly / Yearly |
+| `start_date` | Date | **(required)** |
+| `end_date` | Date | **(required)**, must be >= start_date |
+| `alert_threshold_pct` | Int | default 90 |
+| `notes` | Small Text | optional |
+| `is_active` | Check | default 1 |
+| `last_alert_sent_on` | Date | tracks last alert sent to avoid duplicates |
 
-**Validation**: one Budget per (`category`, `month`, `owner_user`) — no
-duplicates. `allocated_amount` must be positive.
+**Validation**: one active Budget per (`category`, `owner_user`). Period
+dates validated for correct order. Threshold 0–100.
 
-**Hooks**: `on_update` of a linked Expense recomputes `spent_amount` and
-triggers `services/budget_service.check_overspend()`.
-
-**Permissions**: Individual only (Dependents cannot view/edit budgets).
+**Hooks**: `BudgetService.refresh_budget()` recomputes `spent_amount` from
+Expense records and checks overspend threshold.
 
 ---
 
@@ -53,18 +60,18 @@ A family member without desk access.
 
 | Field | Type | Notes |
 |---|---|---|
-| `dependent_name` | Data | **(required)** |
-| `relation` | Select | Child / Spouse / Parent / Other |
-| `guardian_user` | Link → User | **(required)** — the Individual responsible |
-| `linked_user` | Link → User | auto-created restricted User for permission scoping |
+| `guardian` | Link → User | **(required)** — the Individual responsible |
+| `dependent_name` | Data | **(required)**, unique per guardian |
+| `relationship` | Select | Son / Daughter / Spouse / Parent / Other |
+| `default_monthly_allowance` | Currency | **(required)**, >= 0 |
+| `telegram_username` | Data | optional |
+| `telegram_user_id` | Data | optional, for Telegram identity resolution |
+| `allow_carry_forward` | Check | default 1 — whether unused pocket money rolls over |
 | `is_active` | Check | default 1 |
 
-**Validation**: creating a Dependent auto-creates a restricted Frappe `User`
-with role `Dependent`, used purely for permission checks (no desk login
-needed — Telegram is the interface).
-
-**Permissions**: Individual: full CRUD on their own Dependents. Dependent:
-read-only on their own record.
+**Validation**: `dependent_name` unique per `guardian`. Relationship must
+be a valid enum value. Allowance must be numeric and >= 0. Cannot delete
+if referenced by an Expense or Pocket Money Allocation.
 
 ---
 
@@ -73,18 +80,20 @@ read-only on their own record.
 | Field | Type | Notes |
 |---|---|---|
 | `dependent` | Link → Dependent | **(required)** |
-| `month` | Data (YYYY-MM) | **(required)** |
-| `allocated_amount` | Currency | **(required)** |
-| `spent_amount` | Currency (computed) | sum of Dependent's Expenses this month |
-| `rolled_over_from` | Link → Pocket Money Allocation | optional, previous month's leftover |
-| `savings_balance` | Currency | accumulated rollover total |
+| `allocation_period` | Select | Weekly / Monthly / Quarterly / Yearly |
+| `allocated_amount` | Currency | **(required)**, > 0 |
+| `allocation_date` | Date | **(required)**, defaults to today |
+| `carry_forward_amount` | Currency | default 0 |
+| `total_available_amount` | Currency (read-only) | recomputed by `PocketMoneyService.refresh_balance()` |
+| `remarks` | Small Text | optional |
+| `is_active` | Check | default 1 |
 
-**Validation**: one record per (`dependent`, `month`). Rollover logic lives
-in `services/dependent_service.rollover_pocket_money()`, not in a DocType
-hook, to keep it testable and explicit.
+**Validation**: one active allocation per dependent. Period validated
+against allowed values. Allocation date validated as a real date.
 
-**Permissions**: Individual: full CRUD for their own Dependents. Dependent:
-read-only on their own record.
+**Rollover**: `PocketMoneyService.rollover_allocation()` deactivates the
+current allocation and creates a new one with carry-forward if
+`allow_carry_forward` is enabled on the Dependent.
 
 ---
 
@@ -94,62 +103,56 @@ The single source of truth for all spending.
 
 | Field | Type | Notes |
 |---|---|---|
-| `amount` | Currency | **(required)**, > 0 |
+| `owner_user` | Link → User | **(required)** — the Individual |
 | `category` | Link → Category | **(required)** |
-| `merchant` | Data | optional, free text (e.g. "Zomato") |
-| `date` | Date | **(required)**, defaults to today |
-| `notes` | Small Text | optional |
-| `owner_type` | Select | Individual / Dependent — **(required)** |
-| `owner` | Dynamic Link (User or Dependent) | **(required)** |
-| `source` | Select | web / telegram — **(required)** |
-| `raw_transcript` | Small Text | optional — the original transcribed text, kept for audit/debugging |
-| `ai_confidence` | Float | optional, 0-1, set when created via voice |
+| `amount` | Currency | **(required)**, > 0 |
+| `expense_date` | Date | **(required)**, cannot be in the future |
+| `dependent` | Link → Dependent | optional — set when a Dependent logs the expense |
+| `description` | Small Text | optional |
+| `source` | Select | Manual / Telegram |
+| `payment_method` | Data | optional |
+| `voice_transcript` | Small Text | optional — raw transcript from voice input |
 
-**Validation**: `category` must belong to the same owning Individual (a
-Dependent's Expense uses their guardian's Categories). `amount` > 0.
+**Validation**: `category` must belong to the same `owner_user`. `amount`
+> 0. `expense_date` not in the future. `source` must be a valid enum value.
 
-**Permissions**: Individual: full CRUD on their own + their Dependents'
-Expenses. Dependent: create + read on their own Expenses only; no delete
-(ask guardian) — confirm this rule with the user before Phase 11 if it's
-ambiguous (see `AGENTS.md` rule 8).
+**Hooks**: `ExpenseService.create_expense()` calls `BudgetService.refresh_budget()`
+and `PocketMoneyService.refresh_balance()` after every create/update/delete.
 
 ---
 
 ## 6. Telegram Link
 
-Maps a Telegram numeric ID to a User or Dependent.
+Maps a Telegram numeric ID to a Frappe User.
 
 | Field | Type | Notes |
 |---|---|---|
-| `telegram_id` | Data | **(required)**, unique |
-| `linked_type` | Select | Individual / Dependent |
-| `linked_name` | Dynamic Link | the User or Dependent |
-| `linked_at` | Datetime | auto-set |
-| `otp` | Data | transient, cleared after verification |
-| `otp_expires_at` | Datetime | transient |
-| `is_active` | Check | default 1, set to 0 on `/unlink` |
+| `user` | Link → User | **(required)** |
+| `telegram_user_id` | Data | **(required)**, unique across active links |
+| `telegram_username` | Data | optional |
+| `first_name` | Data | optional |
+| `last_name` | Data | optional |
+| `language_code` | Data | optional |
+| `is_active` | Check | default 1, set to 0 on unlink |
+| `linked_on` | Datetime | auto-set |
 
-**Validation**: `telegram_id` unique across active links (a Telegram
-account can only be linked to one Individual/Dependent at a time).
+**Validation**: one active link per `telegram_user_id`. One active link
+per `user`. Tokens are stored in Redis (not the database) with a 10-minute
+TTL.
 
-**Permissions**: system-managed; not directly editable via desk UI by
-end users beyond linking/unlinking through the bot flow.
+**Permissions**: system-managed. Desk users interact via the linking flow,
+not by editing records directly.
 
 ---
 
 ## Relationships Recap
 
 ```
-User (Individual) 1───N Category
-User (Individual) 1───N Budget            (via Category)
-User (Individual) 1───N Dependent
-Dependent         1───N Pocket Money Allocation
-User / Dependent  1───N Expense           (via owner_type + owner)
-User / Dependent  1───1 Telegram Link
+User (Individual/Guardian) 1───N Category
+User (Individual/Guardian) 1───N Budget            (via Category)
+User (Individual/Guardian) 1───N Dependent
+Dependent                  1───N Pocket Money Allocation
+User                       1───N Expense           (owner_user)
+Dependent                  1───N Expense           (dependent, optional)
+User                       1───1 Telegram Link     (active)
 ```
-
-## Seed Data (suggested defaults on install)
-
-Default Categories to seed for a new Individual: Food, Travel, Medical,
-Utilities, Shopping, Entertainment, Uncategorized. Confirm this list before
-Phase 1 completes if the user wants a different starting set.

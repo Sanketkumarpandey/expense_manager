@@ -1,0 +1,11 @@
+{
+ "report_type": "Query Report",
+ "ref_doctype": "Pocket Money Allocation",
+ "filters": [],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1
+  }
+ ]
+}

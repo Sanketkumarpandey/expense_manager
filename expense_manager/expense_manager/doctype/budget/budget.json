@@ -13,6 +13,7 @@
   "allocated_amount",
   "period",
   "alert_threshold_pct",
+  "last_alert_sent_on",
   "section_break_odka",
   "start_date",
   "column_break_vlrf",
@@ -105,12 +106,17 @@
    "fieldtype": "Int",
    "label": "Alert Threshold %",
    "reqd": 1
+  },
+  {
+   "fieldname": "last_alert_sent_on",
+   "fieldtype": "Date",
+   "label": "Last Alert Sent On"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-07-23 14:56:52.362667",
+ "modified": "2026-07-27 15:48:52.576442",
  "modified_by": "Administrator",
  "module": "Expense Manager",
  "name": "Budget",

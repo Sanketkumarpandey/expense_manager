@@ -15,6 +15,7 @@ from expense_manager.services.exceptions import (
 )
 from expense_manager.constants.dependent import Relationship
 from expense_manager.utils.logger import logger
+from expense_manager.utils.helpers import escape_like
 
 
 _UNSET = object()
@@ -55,10 +56,11 @@ class DependentService:
                 "telegram_user_id": telegram_user_id,
                 "allow_carry_forward": allow_carry_forward,
                 "is_active": 1,
-            }
+            },
+            ignore_permissions=True,
         )
 
-        dependent.insert()
+        dependent.insert(ignore_permissions=True)
 
         logger.info(
             "Dependent created | guardian=%s | name=%s | id=%s",
@@ -137,7 +139,7 @@ class DependentService:
         if allow_carry_forward is not None:
             doc.allow_carry_forward = allow_carry_forward
 
-        doc.save()
+        doc.save(ignore_permissions=True)
 
         logger.info(
             "Dependent updated | guardian=%s | id=%s",
@@ -200,7 +202,7 @@ class DependentService:
 
         filters = {
             "guardian": guardian,
-            "dependent_name": ["like", f"%{search_text.strip()}%"],
+            "dependent_name": ["like", f"%{escape_like(search_text.strip())}%"],
         }
 
         if active_only:
@@ -219,6 +221,26 @@ class DependentService:
         )
 
     @staticmethod
+    def get_active_dependent_by_telegram_id(
+        telegram_user_id: str,
+    ) -> Optional[dict]:
+        """Resolve a Telegram user ID to an active dependent's name and guardian."""
+        dependent_name = frappe.db.get_value(
+            "Dependent",
+            {
+                "telegram_user_id": telegram_user_id,
+                "is_active": 1,
+            },
+            "name",
+        )
+
+        if not dependent_name:
+            return None
+
+        guardian = frappe.db.get_value("Dependent", dependent_name, "guardian")
+        return {"name": dependent_name, "guardian": guardian}
+
+    @staticmethod
     def delete_dependent(
         guardian: str,
         dependent: str,
@@ -227,7 +249,7 @@ class DependentService:
 
         DependentService._validate_delete(doc)
 
-        doc.delete()
+        doc.delete(ignore_permissions=True)
 
         logger.info(
             "Dependent deleted | guardian=%s | id=%s",
@@ -241,7 +263,7 @@ class DependentService:
         dependent: str,
     ) -> Document:
         try:
-            doc = frappe.get_doc("Dependent", dependent)
+            doc = frappe.get_doc("Dependent", dependent, ignore_permissions=True)
 
         except frappe.DoesNotExistError as exc:
             raise DependentNotFoundError(
@@ -267,7 +289,7 @@ class DependentService:
             return doc
 
         doc.is_active = is_active
-        doc.save()
+        doc.save(ignore_permissions=True)
 
         logger.info(
             "Dependent %s | guardian=%s | id=%s",

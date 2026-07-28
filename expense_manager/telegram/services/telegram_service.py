@@ -9,6 +9,13 @@ import requests
 from frappe import _
 
 from expense_manager.telegram.config import get_telegram_bot_token
+from expense_manager.telegram.utils.constants import (
+	_TELEGRAM_API_BASE_URL,
+	SEND_MESSAGE_TIMEOUT,
+	SEND_PHOTO_TIMEOUT,
+	TELEGRAM_MAX_RETRIES,
+	TELEGRAM_RETRY_BACKOFF_BASE,
+)
 from expense_manager.services.exceptions import (
 	ExpenseManagerError,
 	TelegramNotLinkedError,
@@ -27,45 +34,80 @@ from expense_manager.services.ai_service import AIService
 from expense_manager.ai.exceptions import AIError
 
 
-_TELEGRAM_API_BASE_URL = "https://api.telegram.org"
-
-
 def send_message(chat_id: str | int, text: str, parse_mode: str | None = None) -> dict[str, object]:
 	"""Send one text reply through Telegram without exposing credentials or adding other APIs."""
+	import time
+
 	payload: dict[str, str | int] = {"chat_id": chat_id, "text": text}
 	if parse_mode is not None:
 		payload["parse_mode"] = parse_mode
-	response = requests.post(
-		f"{_TELEGRAM_API_BASE_URL}/bot{get_telegram_bot_token()}/sendMessage",
-		data=payload,
-		timeout=10,
-	)
-	response.raise_for_status()
-	response_payload = response.json()
-	if not isinstance(response_payload, dict):
-		raise ValueError("Telegram returned an invalid sendMessage response.")
-	frappe.logger("expense_manager").info("telegram_send_message status=sent")
-	return cast(dict[str, object], response_payload)
+
+	last_exc: Exception | None = None
+	for attempt in range(TELEGRAM_MAX_RETRIES + 1):
+		try:
+			response = requests.post(
+				f"{_TELEGRAM_API_BASE_URL}/bot{get_telegram_bot_token()}/sendMessage",
+				data=payload,
+				timeout=SEND_MESSAGE_TIMEOUT,
+			)
+			if 500 <= response.status_code < 600 and attempt < TELEGRAM_MAX_RETRIES:
+				time.sleep(TELEGRAM_RETRY_BACKOFF_BASE * (2 ** attempt))
+				continue
+			response.raise_for_status()
+			response_payload = response.json()
+			if not isinstance(response_payload, dict):
+				raise ValueError("Telegram returned an invalid sendMessage response.")
+			frappe.logger("expense_manager").info("telegram_send_message status=sent")
+			return cast(dict[str, object], response_payload)
+		except requests.exceptions.RequestException as exc:
+			last_exc = exc
+			if attempt < TELEGRAM_MAX_RETRIES:
+				time.sleep(TELEGRAM_RETRY_BACKOFF_BASE * (2 ** attempt))
+				continue
+			raise
+
+	raise last_exc  # type: ignore[misc]
 
 
 def send_photo(chat_id: str | int, photo_bytes: bytes, caption: str | None = None) -> dict[str, object]:
 	"""Send one PNG image through Telegram, with an optional caption."""
+	import time
+
 	data: dict[str, str | int] = {"chat_id": chat_id}
 	if caption is not None:
 		data["caption"] = caption[:1024]
 	files = {"photo": ("report.png", photo_bytes, "image/png")}
-	response = requests.post(
-		f"{_TELEGRAM_API_BASE_URL}/bot{get_telegram_bot_token()}/sendPhoto",
-		data=data,
-		files=files,
-		timeout=15,
-	)
-	response.raise_for_status()
-	response_payload = response.json()
-	if not isinstance(response_payload, dict):
-		raise ValueError("Telegram returned an invalid sendPhoto response.")
-	frappe.logger("expense_manager").info("telegram_send_photo status=sent")
-	return cast(dict[str, object], response_payload)
+
+	last_exc: Exception | None = None
+	for attempt in range(TELEGRAM_MAX_RETRIES + 1):
+		try:
+			response = requests.post(
+				f"{_TELEGRAM_API_BASE_URL}/bot{get_telegram_bot_token()}/sendPhoto",
+				data=data,
+				files=files,
+				timeout=SEND_PHOTO_TIMEOUT,
+			)
+			if 500 <= response.status_code < 600 and attempt < TELEGRAM_MAX_RETRIES:
+				time.sleep(TELEGRAM_RETRY_BACKOFF_BASE * (2 ** attempt))
+				continue
+			response.raise_for_status()
+			response_payload = response.json()
+			if not isinstance(response_payload, dict):
+				raise ValueError("Telegram returned an invalid sendPhoto response.")
+			frappe.logger("expense_manager").info("telegram_send_photo status=sent")
+			return cast(dict[str, object], response_payload)
+		except requests.exceptions.RequestException as exc:
+			last_exc = exc
+			if attempt < TELEGRAM_MAX_RETRIES:
+				time.sleep(TELEGRAM_RETRY_BACKOFF_BASE * (2 ** attempt))
+				continue
+			raise
+
+	raise last_exc  # type: ignore[misc]
+
+_UNLINKED_MSG = "Your Telegram account is not linked. Use /link first."
+_GUARDIAN_MSG = "This action is only available to the account guardian."
+
 
 class TelegramService:
 
@@ -78,7 +120,9 @@ class TelegramService:
 		telegram_user_id: str,
 		expense_data: dict,
 	) -> dict:
-		identity = TelegramService._resolve_identity(telegram_user_id)
+		identity, error = TelegramService._resolve_identity_or_error(telegram_user_id)
+		if error:
+			return error
 
 		dependent = expense_data.get("dependent")
 
@@ -115,8 +159,9 @@ class TelegramService:
 		expense_name: str,
 		updates: dict,
 	) -> dict:
-		identity = TelegramService._resolve_identity(telegram_user_id)
-		TelegramService._require_guardian(identity)
+		identity, error = TelegramService._resolve_guardian_or_error(telegram_user_id)
+		if error:
+			return error
 
 		try:
 			expense = ExpenseService.update_expense(
@@ -141,8 +186,9 @@ class TelegramService:
 		telegram_user_id: str,
 		expense_name: str,
 	) -> dict:
-		identity = TelegramService._resolve_identity(telegram_user_id)
-		TelegramService._require_guardian(identity)
+		identity, error = TelegramService._resolve_guardian_or_error(telegram_user_id)
+		if error:
+			return error
 
 		try:
 			ExpenseService.delete_expense(identity["owner_user"], expense_name)
@@ -153,7 +199,9 @@ class TelegramService:
 
 	@staticmethod
 	def list_expenses(telegram_user_id: str) -> dict:
-		identity = TelegramService._resolve_identity(telegram_user_id)
+		identity, error = TelegramService._resolve_identity_or_error(telegram_user_id)
+		if error:
+			return error
 
 		try:
 			data = ExpenseService.get_recent_expenses(
@@ -161,6 +209,12 @@ class TelegramService:
 				dependent=identity["dependent"] if identity["is_dependent"] else None,
 				limit=10,
 			)
+			category_names = {
+				row["name"]: row["category_name"]
+				for row in CategoryService.list_categories(identity["owner_user"], active_only=True)
+			}
+			for expense in data:
+				expense["category_name"] = category_names.get(expense["category"], expense["category"])
 			return {"success": True, "data": data}
 
 		except ExpenseManagerError as exc:
@@ -172,7 +226,9 @@ class TelegramService:
 		file_path: str,
 		language_hint: Optional[str] = None,
 	) -> dict:
-		identity = TelegramService._resolve_identity(telegram_user_id)
+		identity, error = TelegramService._resolve_identity_or_error(telegram_user_id)
+		if error:
+			return error
 		dependent = identity["dependent"] if identity["is_dependent"] else None
 
 		try:
@@ -191,7 +247,7 @@ class TelegramService:
 
 			return {
 				"success": True,
-				"message": _("Logged {0} under {1}.").format(expense.amount, category_name) + warning,
+				"message": _("Logged ₹{0} under {1}.").format(expense.amount, category_name) + warning,
 				"expense": expense.name,
 			}
 
@@ -204,8 +260,9 @@ class TelegramService:
 
 	@staticmethod
 	def get_dashboard(telegram_user_id: str) -> dict:
-		identity = TelegramService._resolve_identity(telegram_user_id)
-		TelegramService._require_guardian(identity)
+		identity, error = TelegramService._resolve_guardian_or_error(telegram_user_id)
+		if error:
+			return error
 
 		try:
 			data = ReportService.get_dashboard_summary(identity["owner_user"])
@@ -216,8 +273,9 @@ class TelegramService:
 
 	@staticmethod
 	def get_budget(telegram_user_id: str) -> dict:
-		identity = TelegramService._resolve_identity(telegram_user_id)
-		TelegramService._require_guardian(identity)
+		identity, error = TelegramService._resolve_guardian_or_error(telegram_user_id)
+		if error:
+			return error
 
 		try:
 			data = ReportService.get_budget_summary(identity["owner_user"])
@@ -231,8 +289,9 @@ class TelegramService:
 		telegram_user_id: str,
 		year: Optional[int] = None,
 	) -> dict:
-		identity = TelegramService._resolve_identity(telegram_user_id)
-		TelegramService._require_guardian(identity)
+		identity, error = TelegramService._resolve_guardian_or_error(telegram_user_id)
+		if error:
+			return error
 
 		try:
 			data = ReportService.get_monthly_report(identity["owner_user"], year=year)
@@ -243,8 +302,9 @@ class TelegramService:
 
 	@staticmethod
 	def get_category_report(telegram_user_id: str) -> dict:
-		identity = TelegramService._resolve_identity(telegram_user_id)
-		TelegramService._require_guardian(identity)
+		identity, error = TelegramService._resolve_guardian_or_error(telegram_user_id)
+		if error:
+			return error
 
 		try:
 			data = ReportService.get_category_breakdown(identity["owner_user"])
@@ -258,7 +318,9 @@ class TelegramService:
 		telegram_user_id: str,
 		dependent: Optional[str] = None,
 	) -> dict:
-		identity = TelegramService._resolve_identity(telegram_user_id)
+		identity, error = TelegramService._resolve_identity_or_error(telegram_user_id)
+		if error:
+			return error
 
 		if identity["is_dependent"]:
 			dependent = identity["dependent"]
@@ -278,8 +340,9 @@ class TelegramService:
 
 	@staticmethod
 	def list_dependents(telegram_user_id: str) -> dict:
-		identity = TelegramService._resolve_identity(telegram_user_id)
-		TelegramService._require_guardian(identity)
+		identity, error = TelegramService._resolve_guardian_or_error(telegram_user_id)
+		if error:
+			return error
 
 		try:
 			data = DependentService.list_dependents(identity["owner_user"], active_only=True)
@@ -290,7 +353,9 @@ class TelegramService:
 
 	@staticmethod
 	def get_pocket_money(telegram_user_id: str) -> dict:
-		identity = TelegramService._resolve_identity(telegram_user_id)
+		identity, error = TelegramService._resolve_identity_or_error(telegram_user_id)
+		if error:
+			return error
 
 		try:
 			if identity["is_dependent"]:
@@ -314,7 +379,9 @@ class TelegramService:
 
 	@staticmethod
 	def list_categories(telegram_user_id: str) -> dict:
-		identity = TelegramService._resolve_identity(telegram_user_id)
+		identity, error = TelegramService._resolve_identity_or_error(telegram_user_id)
+		if error:
+			return error
 
 		try:
 			data = CategoryService.list_categories(identity["owner_user"], active_only=True)
@@ -346,8 +413,9 @@ class TelegramService:
 
 	@staticmethod
 	def unlink_account(telegram_user_id: str) -> dict:
-		identity = TelegramService._resolve_identity(telegram_user_id)
-		TelegramService._require_guardian(identity)
+		identity, error = TelegramService._resolve_guardian_or_error(telegram_user_id)
+		if error:
+			return error
 
 		try:
 			TelegramLinkService.unlink_account(identity["owner_user"])
@@ -375,6 +443,30 @@ class TelegramService:
 		}
 
 	# ------------------------------------------------------------------
+	# Identity Resolution (error-safe)
+	# ------------------------------------------------------------------
+
+	@staticmethod
+	def _resolve_identity_or_error(telegram_user_id: str) -> tuple[Optional[dict], Optional[dict]]:
+		"""Return *(identity, None)* on success, or *(None, error_dict)* if unlinked."""
+		try:
+			return TelegramService._resolve_identity(telegram_user_id), None
+		except TelegramNotLinkedError:
+			return None, {"success": False, "message": _UNLINKED_MSG}
+
+	@staticmethod
+	def _resolve_guardian_or_error(telegram_user_id: str) -> tuple[Optional[dict], Optional[dict]]:
+		"""Return *(identity, None)* for a linked guardian, or *(None, error_dict)*."""
+		identity, error = TelegramService._resolve_identity_or_error(telegram_user_id)
+		if error:
+			return None, error
+		try:
+			TelegramService._require_guardian(identity)
+			return identity, None
+		except UnauthorizedTelegramActionError:
+			return None, {"success": False, "message": _GUARDIAN_MSG}
+
+	# ------------------------------------------------------------------
 	# Private Helpers
 	# ------------------------------------------------------------------
 
@@ -394,20 +486,12 @@ class TelegramService:
 				"is_dependent": False,
 			}
 
-		dependent_name = frappe.db.get_value(
-			"Dependent",
-			{
-				"telegram_user_id": telegram_user_id,
-				"is_active": 1,
-			},
-			"name",
-		)
+		dependent = DependentService.get_active_dependent_by_telegram_id(telegram_user_id)
 
-		if dependent_name:
-			guardian = frappe.db.get_value("Dependent", dependent_name, "guardian")
+		if dependent:
 			return {
-				"owner_user": guardian,
-				"dependent": dependent_name,
+				"owner_user": dependent["guardian"],
+				"dependent": dependent["name"],
 				"is_dependent": True,
 			}
 
@@ -443,14 +527,16 @@ class TelegramService:
 
 		category_name = CategoryService.get_category(owner_user, category).category_name
 
-		return _(" ⚠️ You're over budget in {0}: {1} spent of {2} allocated.").format(
+		return _(" ⚠️ You're over budget in {0}: ₹{1} spent of ₹{2} allocated.").format(
 			category_name, usage["spent_amount"], usage["allocated_amount"]
 		)
 
 
 	@staticmethod
 	def rollover_pocket_money(telegram_user_id: str) -> dict:
-		identity = TelegramService._resolve_identity(telegram_user_id)
+		identity, error = TelegramService._resolve_identity_or_error(telegram_user_id)
+		if error:
+			return error
 
 		if not identity["is_dependent"]:
 			return {"success": False, "message": _("Only a dependent account can roll over pocket money.")}
@@ -461,9 +547,36 @@ class TelegramService:
 			)
 			return {
 				"success": True,
-				"message": _("Rolled over! New balance: {0}.").format(
+				"message": _("Rolled over! New balance: ₹{0}.").format(
 					new_allocation.total_available_amount
 				),
 			}
+		except ExpenseManagerError as exc:
+			return {"success": False, "message": str(exc)}
+
+
+	@staticmethod
+	def complete_link(
+		telegram_user_id: str,
+		token: str,
+		telegram_username: Optional[str] = None,
+		first_name: Optional[str] = None,
+		last_name: Optional[str] = None,
+		language_code: Optional[str] = None,
+	) -> dict:
+		try:
+			TelegramLinkService.verify_and_link(
+				token=token,
+				telegram_user_id=telegram_user_id,
+				telegram_username=telegram_username,
+				first_name=first_name,
+				last_name=last_name,
+				language_code=language_code,
+			)
+			return {
+				"success": True,
+				"message": _("Your account is now linked! Send /help to get started."),
+			}
+
 		except ExpenseManagerError as exc:
 			return {"success": False, "message": str(exc)}

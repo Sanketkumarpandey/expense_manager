@@ -5,7 +5,7 @@ in a working, testable state — verify with `bench run-tests` before moving
 to the next. After each phase, update `docs/roadmap.md`'s "Completed"
 checklist.
 
-Give the agent access to this whole `docs/` folder and `AGENTS.md` before
+Give the agent access to this whole `docs/folder` and `AGENTS.md` before
 Phase 1.
 
 ---
@@ -150,9 +150,9 @@ Write tests per docs/testing.md.
 Implement Telegram account linking per docs/telegram_commands.md and
 docs/doctypes.md (Telegram Link).
 
-Flow: /link generates an OTP (docs/environment.md: otp_expiry_minutes) →
-user verifies it against their User/Dependent → Telegram Link record
-created. Support /unlink. Write tests.
+Flow: /link generates a short-lived token (via POST /api/method/...generate_link_code)
+→ user sends /link <token> to bot → Telegram Link record created.
+Support /unlink (idempotent). Write tests.
 ```
 
 ### Phase 8 — Voice Message Receive (no transcription yet)
@@ -219,9 +219,17 @@ tests.
 
 ### Phase 14+ — Future Phases (not yet detailed)
 
-- Pocket money allocation + rollover wiring into Telegram commands
-- Dependent-specific commands (`/pocketmoney`)
-- Production deployment phase (see `docs/deployment.md` "deferred" list)
+- Full service layer (8 services, typed exceptions)
+- REST API (7 whitelisted endpoint modules)
+- Dependent management + pocket money allocation
+- Pocket money rollover (daily scheduled job)
+- Daily reminders (no-expenses, weekly/monthly summary, low balance)
+- Extended Telegram commands (expenses, categories, budgets, balance, etc.)
+- Five Frappe Query Reports
+- Service unit tests (269 tests)
+- Integration tests (21 cross-service workflow tests, 290 total)
+- Security audit (ignore_permissions, guardian cross-checks, allow_rename fix)
+- Documentation updates
 
 Write the detailed prompt for each future phase only once the prior phase
 is complete and verified — don't pre-write prompts for work whose
@@ -234,7 +242,7 @@ prerequisites might change.
 1. Paste the phase prompt into Codex (`codex --yolo` or equivalent —
    see below).
 2. Let it run to completion.
-3. Run `bench --site <site> run-tests --app expense_manager`.
+3. Run `bench --site expense.local run-tests --app expense_manager`.
 4. Review the diff.
 5. Check off the phase in `docs/roadmap.md`.
 6. Move to the next phase — in a fresh Codex invocation if the CLI doesn't

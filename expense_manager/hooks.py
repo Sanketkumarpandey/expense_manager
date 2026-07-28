@@ -44,6 +44,7 @@ app_license = "mit"
 
 # include js in doctype views
 # doctype_js = {"doctype" : "public/js/doctype.js"}
+doctype_js = {"User": "public/js/user.js"}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -166,6 +167,13 @@ app_license = "mit"
 # 		"expense_manager.tasks.monthly"
 # 	],
 # }
+scheduler_events = {
+	"daily": [
+		"expense_manager.jobs.monthly_rollover.run_monthly_rollover",
+        "expense_manager.jobs.budget_alerts.run_budget_alerts",
+        "expense_manager.jobs.reminders.run_reminders",
+	],
+}
 
 # Testing
 # -------

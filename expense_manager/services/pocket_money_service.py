@@ -19,6 +19,7 @@ from expense_manager.services.exceptions import (
 from expense_manager.services.dependent_service import DependentService
 from expense_manager.constants.pocket_money import AllocationPeriod
 from expense_manager.utils.logger import logger
+from expense_manager.utils.helpers import escape_like
 
 
 _UNSET = object()
@@ -67,10 +68,11 @@ class PocketMoneyService:
                 "total_available_amount": allocated_amount + carry_forward_amount,
                 "remarks": remarks,
                 "is_active": 1,
-            }
+            },
+            ignore_permissions=True,
         )
 
-        allocation.insert()
+        allocation.insert(ignore_permissions=True)
 
         PocketMoneyService.refresh_balance(guardian, dependent)
 
@@ -122,7 +124,7 @@ class PocketMoneyService:
         if remarks is not _UNSET:
             doc.remarks = remarks
 
-        doc.save()
+        doc.save(ignore_permissions=True)
 
         PocketMoneyService.refresh_balance(guardian, doc.dependent)
 
@@ -143,7 +145,7 @@ class PocketMoneyService:
 
         PocketMoneyService._validate_delete(doc)
 
-        doc.delete()
+        doc.delete(ignore_permissions=True)
 
         logger.info(
             "Pocket money allocation deleted | guardian=%s | id=%s",
@@ -211,7 +213,7 @@ class PocketMoneyService:
 
         filters = {
             "dependent": ["in", PocketMoneyService._guardian_dependent_names(guardian)],
-            "remarks": ["like", f"%{search_text.strip()}%"],
+            "remarks": ["like", f"%{escape_like(search_text.strip())}%"],
         }
 
         if active_only:
@@ -254,7 +256,7 @@ class PocketMoneyService:
         if allocation is None:
             return None
 
-        period_end = PocketMoneyService._period_end_date(
+        period_end = PocketMoneyService.get_period_end_date(
             allocation.allocation_date,
             allocation.allocation_period,
         )
@@ -294,12 +296,14 @@ class PocketMoneyService:
         if not dependent:
             return
 
+        PocketMoneyService._validate_dependent(owner_user, dependent)
+
         allocation = PocketMoneyService._get_active_allocation_for_dependent(dependent)
 
         if allocation is None:
             return
 
-        period_end = PocketMoneyService._period_end_date(
+        period_end = PocketMoneyService.get_period_end_date(
             allocation.allocation_date,
             allocation.allocation_period,
         )
@@ -316,7 +320,7 @@ class PocketMoneyService:
         )
 
         allocation.total_available_amount = remaining_amount
-        allocation.save()
+        allocation.save(ignore_permissions=True)
 
         logger.info(
             "Pocket money balance refreshed | owner=%s | dependent=%s | id=%s | remaining=%s",
@@ -325,6 +329,38 @@ class PocketMoneyService:
             allocation.name,
             remaining_amount,
         )
+
+    # ------------------------------------------------------------------
+    # Notification message builders (called by jobs/reminders.py)
+    # ------------------------------------------------------------------
+
+    LOW_BALANCE_THRESHOLD = 0.2
+
+    @staticmethod
+    def build_low_balance_messages(owner_user: str) -> list[str]:
+        """Return one message per dependent whose pocket money is running low.
+
+        A balance is considered "low" when the remaining amount falls
+        below 20 % of the allocated amount.
+        """
+        dependents = DependentService.list_dependents(owner_user, active_only=True)
+        messages: list[str] = []
+
+        for dep in dependents:
+            balance = PocketMoneyService.get_balance(owner_user, dep["name"])
+            if balance is None:
+                continue
+
+            allocated = balance.get("allocated_amount", 0)
+            remaining = balance.get("remaining_amount", 0)
+
+            if allocated > 0 and remaining < allocated * PocketMoneyService.LOW_BALANCE_THRESHOLD:
+                messages.append(
+                    f"Pocket money for {dep['dependent_name']} is running low: "
+                    f"{remaining} remaining of {allocated} allocated."
+                )
+
+        return messages
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -336,7 +372,7 @@ class PocketMoneyService:
         allocation: str,
     ) -> Document:
         try:
-            doc = frappe.get_doc("Pocket Money Allocation", allocation)
+            doc = frappe.get_doc("Pocket Money Allocation", allocation, ignore_permissions=True)
         except frappe.DoesNotExistError as exc:
             raise PocketMoneyAllocationNotFoundError(
                 _("Pocket money allocation not found.")
@@ -369,7 +405,7 @@ class PocketMoneyService:
         if not name:
             return None
 
-        return frappe.get_doc("Pocket Money Allocation", name)
+        return frappe.get_doc("Pocket Money Allocation", name, ignore_permissions=True)
 
     @staticmethod
     def _guardian_dependent_names(guardian: str) -> list[str]:
@@ -399,7 +435,7 @@ class PocketMoneyService:
         return flt(total)
 
     @staticmethod
-    def _period_end_date(allocation_date, allocation_period: str):
+    def get_period_end_date(allocation_date, allocation_period: str):
         start = getdate(allocation_date)
 
         if allocation_period == AllocationPeriod.WEEKLY:
@@ -428,7 +464,7 @@ class PocketMoneyService:
             return doc
 
         doc.is_active = is_active
-        doc.save()
+        doc.save(ignore_permissions=True)
 
         logger.info(
             "Pocket money allocation %s | guardian=%s | id=%s",
@@ -530,7 +566,7 @@ class PocketMoneyService:
         carry_forward = remaining if dependent_doc.allow_carry_forward and remaining > 0 else 0.0
 
         current.is_active = 0
-        current.save()
+        current.save(ignore_permissions=True)
 
         new_allocation = PocketMoneyService.create_allocation(
             guardian=guardian,

@@ -1,93 +1,88 @@
 # Testing Strategy
 
 Five layers, each with a distinct purpose. See `docs/testing.md` for the
-quick "how to run" reference and file layout.
+quick reference.
 
-## 1. Unit Tests — DocTypes & Services
+## 1. Unit Tests — Services (269 tests)
 
-Scope: validation logic, computed fields, business rules in isolation.
+Scope: business logic in `services/*`, validated against mocked Frappe ORM.
 
-Examples:
-- `Category` name uniqueness per owner
-- `Budget` overspend detection at threshold %
-- `Expense` requires `category` to belong to the same Individual as the
-  Dependent's guardian
-- `Pocket Money Allocation` rollover math (unused amount → savings_balance)
+Every service method is tested for:
+- Happy path
+- Ownership validation (wrong owner → not found)
+- Validation errors (invalid amounts, dates, periods, thresholds)
+- Idempotency (archive/restore when already in target state)
+- Edge cases (empty lists, None values, boundary conditions)
 
-Run against a test site's DB (Frappe's standard test framework), no
-external HTTP calls.
+Tests use `ServiceTestCase` from `tests/base.py`, which patches
+`frappe.get_doc`, `frappe.get_all`, `frappe.db.exists`,
+`frappe.db.get_value`, `frappe.throw`, `frappe.commit`,
+`frappe.rollback`, and `frappe.logger` at the module level.
 
-## 2. Integration Tests — API Layer
+## 2. Integration Tests — Cross-Service Workflows (21 tests)
 
-Scope: whitelisted methods in `api/*`, exercised end-to-end against the
-test database (create → read → assert side effects), still no external AI
-calls.
+Scope: multi-service interactions tested via `tests/test_integration.py`.
 
-Example: `api.expense.create_expense(...)` → assert `Budget.spent_amount`
-updates and an overspend notification job is enqueued when threshold is
-crossed.
+Workflows tested:
+- **Voice → AI → Expense**: transcribe → parse → create expense → budget refresh
+- **Telegram Linking**: link account → verify → unlink → status checks
+- **Pocket Money Rollover**: create allocation → rollover → carry-forward
+- **Budget Alerts**: create budget → overspend → threshold detection → alert message
 
-## 3. Webhook Tests
+## 3. Webhook Tests (11 tests)
 
-Scope: `telegram/webhook.py` in isolation.
+Scope: `telegram/webhook.py` and `telegram/webhook_management.py`.
 
 - Valid secret token → 200 + job enqueued
-- Invalid/missing secret token → 403, nothing enqueued
-- Duplicate `update_id` → 200, no second job enqueued
-- Malformed JSON body → handled gracefully, logged, 200 returned (never
-  let Telegram see a 500 or it will keep retrying aggressively)
+- Invalid/missing secret token → 403
+- Duplicate `update_id` → 200, no second job
+- Malformed JSON → 200 (never let Telegram see a 500)
+- Missing `update_id` → 200, ignored
+- Webhook registration/deregistration with mocked requests
 
-Use Frappe's test client to POST synthetic Telegram update payloads
-(fixtures under `tests/fixtures/telegram_updates/`).
+## 4. Router Tests (4 tests)
 
-## 4. AI Module Tests (Mocked)
+Scope: `telegram/router.py`.
 
-Scope: `ai/speech_to_text.py`, `ai/ai_parser.py` — **never** call live
-Sarvam AI / OpenAI in automated tests.
+- Voice update dispatches to `handle_voice`
+- `/start`, `/help`, `/link`, `/unlink` dispatch to correct handlers
+- Unknown command dispatches to `handle_unknown`
+- Non-message updates are ignored
 
-- `speech_to_text.transcribe()`: mock the HTTP response for success,
-  timeout, and empty-transcript cases; assert correct return value / raised
-  exception in each.
-- `ai_parser.parse_expense()`: mock OpenAI responses for a valid extraction,
-  an invalid-category extraction (must fall back to "Uncategorized"), a
-  null-amount case (must trigger clarification), and malformed JSON (must
-  raise `ExpenseParseError`).
+## 5. Telegram Service Tests (2 tests)
 
-Fixtures live in `tests/fixtures/sarvam_responses/` and
-`tests/fixtures/openai_responses/`.
+Scope: `telegram/services/telegram_service.py`.
 
-## 5. End-to-End Tests (Local, Manual + Scripted)
+- `send_message` includes required fields
+- `send_message` omits `parse_mode` when not supplied
 
-Scope: the full voice-note-to-Expense flow, run against a local bench with
-`use_mock_ai_apis=1` (see `docs/environment.md`) so it's deterministic and
-free to run repeatedly.
+## 6. Config Tests (5 tests)
 
-Scripted E2E test:
-1. Construct a synthetic Telegram `Update` with a `voice.file_id`
-2. Mock Telegram's `getFile`/file download to return a fixture audio file
-3. Mock Sarvam AI to return a fixed transcript
-4. Mock OpenAI to return a fixed JSON extraction
-5. POST to the webhook endpoint
-6. Assert: an `Expense` record was created with the expected fields, and
-   the expected reply text was "sent" (capture outbound `sendMessage`
-   calls via a mock instead of hitting real Telegram)
+Scope: `telegram/config.py`.
 
-Manual E2E (pre-demo checklist):
-- Real voice note through the real bot, real Sarvam AI + OpenAI keys, on
-  local bench + ngrok tunnel (see `docs/deployment.md`)
-- Confirm reply arrives, Expense appears in the desk, budget/report reflect
-  it
+- All required credentials read from site config
+- Environment variables override site config
+- Missing required value raises descriptive error
+- Mock mode flag validation (0/1/true/false)
 
-## Coverage Expectations by Phase
+## 7. Reminder Tests (16 tests)
 
-Per `docs/codex_workflow.md`, each phase should add tests before being
-marked complete in `docs/roadmap.md`. A phase is not done if
-`bench run-tests` doesn't pass cleanly.
+Scope: `jobs/reminders.py`.
+
+- Message builders return correct format or None
+- Collection assembles multiple reminders
+- Dispatch sends all messages
+- Handles send failures gracefully
+- Skips users with incomplete links
+
+## Coverage Expectations
+
+Each phase adds tests before being marked complete in `docs/roadmap.md`.
+A phase is not done if `bench run-tests` doesn't pass cleanly.
 
 ## What's Explicitly Not Tested Automatically
 
-- Actual Sarvam AI / OpenAI accuracy (that's a manual/product-quality
-  concern, not a CI concern)
+- Actual Sarvam AI / OpenAI accuracy (manual/product concern)
 - Telegram's own delivery guarantees
-- Load/performance testing (out of scope for this phase — revisit if/when
-  moving beyond local bench, see `docs/deployment.md`)
+- Load/performance testing
+- Production deployment concerns

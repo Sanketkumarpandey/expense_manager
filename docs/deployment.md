@@ -7,7 +7,7 @@ running everything locally for development and demoing.
 ## 1. Prerequisites
 
 - Frappe Bench installed (`pip install frappe-bench`), with its own
-  prerequisites: Python 3.11+, Node.js, MariaDB, Redis, yarn/npm.
+  prerequisites: Python 3.14+, Node.js, MariaDB, Redis, yarn/npm.
 - A Sarvam AI API key (sign up at sarvam.ai).
 - An OpenAI API key.
 - A Telegram bot token (from @BotFather).
@@ -21,19 +21,20 @@ running everything locally for development and demoing.
 ```bash
 bench init frappe-bench --frappe-branch version-16
 cd frappe-bench
-bench new-site mysite.local
+bench new-site expense.local
 bench get-app expense_manager <repo_url_or_local_path>
-bench --site mysite.local install-app expense_manager
+bench --site expense.local install-app expense_manager
 ```
 
 ## 3. Configuration (site config, not environment files)
 
 ```bash
-bench --site mysite.local set-config sarvam_api_key "<key>"
-bench --site mysite.local set-config openai_api_key "<key>"
-bench --site mysite.local set-config openai_model "gpt-4o-mini"
-bench --site mysite.local set-config telegram_bot_token "<token>"
-bench --site mysite.local set-config telegram_webhook_secret "<random string>"
+bench --site expense.local set-config sarvam_api_key "<key>"
+bench --site expense.local set-config openai_api_key "<key>"
+bench --site expense.local set-config openai_model "gpt-4o-mini"
+bench --site expense.local set-config sarvam_stt_model "saarika:v2"
+bench --site expense.local set-config telegram_bot_token "<token>"
+bench --site expense.local set-config telegram_webhook_secret "<random string>"
 ```
 
 Full variable list and precedence rules: `docs/environment.md`.
@@ -46,8 +47,7 @@ bench start
 
 This runs the web server, background workers (needed for the Telegram
 webhook's enqueued jobs — see `docs/webhook.md`), and the scheduler
-(needed for month-end pocket money rollover and any scheduled budget
-checks).
+(needed for daily jobs: budget alerts, reminders, monthly rollover).
 
 ## 5. Exposing the Webhook Locally
 
@@ -82,7 +82,21 @@ bench worker --queue default
 bench schedule
 ```
 
-## 8. What's Deferred to a Later Phase
+The scheduler runs these daily jobs (registered in `hooks.py`):
+- `expense_manager.jobs.budget_alerts.run_budget_alerts` — budget overspend alerts
+- `expense_manager.jobs.reminders.run_reminders` — no-expenses, weekly/monthly summary, low balance
+- `expense_manager.jobs.monthly_rollover.run_monthly_rollover` — pocket money allocation rollover
+
+## 8. Running Tests
+
+```bash
+bench --site expense.local run-tests --app expense_manager
+```
+
+Currently **290 tests** across service unit tests, integration tests,
+webhook tests, router tests, config tests, and reminder tests.
+
+## 9. What's Deferred to a Later Phase
 
 - Supervisor/systemd process management
 - Nginx reverse proxy + real TLS certificate (Let's Encrypt)

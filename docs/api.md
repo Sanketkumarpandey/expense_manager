@@ -4,58 +4,90 @@ All endpoints are Frappe `@frappe.whitelist()` methods under
 `expense_manager.api.*`, reachable at
 `/api/method/expense_manager.api.<module>.<method>`.
 
-They are called both by the Telegram services layer and (later) by any
-web/mobile client, so **no Telegram-specific logic lives here.**
+Every method is scoped to `frappe.session.user` via `_current_user()`.
+**No Telegram-specific logic lives here** — these are the desk/REST path.
 
 ## Expense
 
 | Method | Description |
 |---|---|
-| `expense.create_expense(amount, category, merchant=None, date=None, notes=None, owner=None, source="web")` | Creates an Expense. `owner` defaults to the logged-in user; Telegram services pass the resolved User/Dependent explicitly. |
-| `expense.list_expenses(owner=None, from_date=None, to_date=None, category=None)` | Filtered list for reports. |
-| `expense.get_expense(name)` | Single record. |
-| `expense.delete_expense(name)` | Owner or Individual-of-dependent only. |
+| `create_expense(category, amount, expense_date, dependent=None, description=None, source=None, payment_method=None, voice_transcript=None)` | Creates an Expense for the logged-in user. |
+| `get_expense(expense)` | Single expense record by name. |
+| `update_expense(expense, category=None, amount=None, expense_date=None, dependent=None, description=None, payment_method=None)` | Updates an expense. Uses `_API_UNSET` sentinel to distinguish "not supplied" from "explicitly cleared". |
+| `delete_expense(expense)` | Deletes an expense. |
+| `list_expenses(dependent=None, category=None, date_from=None, date_to=None, limit=None)` | Filtered list with optional date range and limit. |
+| `get_recent_expenses(dependent=None, limit=10)` | Convenience: last N expenses. |
+| `get_expenses_by_category(category, dependent=None)` | Expenses for one category. |
+| `get_expenses_by_date_range(date_from, date_to, dependent=None)` | Expenses within a date range. |
+
+## Category
+
+| Method | Description |
+|---|---|
+| `create_category(category_name, icon=None)` | Creates a category for the logged-in user. |
+| `get_category(category)` | Single category by name. |
+| `update_category(category, category_name=None, icon=None, is_active=None)` | Updates a category. |
+| `delete_category(category)` | Deletes a category (fails if in use). |
+| `list_categories(active_only=False)` | All categories for the logged-in user. |
+| `archive_category(category)` / `restore_category(category)` | Toggle active status. |
 
 ## Budget
 
 | Method | Description |
 |---|---|
-| `budget.set_budget(category, month, amount)` | Individual only. |
-| `budget.get_budget_status(month=None)` | Allocated vs. spent per category, with overspend flags. |
+| `create_budget(category, allocated_amount, period, start_date, end_date, alert_threshold_pct=90, notes=None)` | Creates a budget for the logged-in user. |
+| `get_budget(budget)` | Single budget by name. |
+| `update_budget(budget, ...)` | Updates budget fields. |
+| `delete_budget(budget)` | Deletes a budget. |
+| `list_budgets(category=None, active_only=False)` | All budgets for the logged-in user. |
+| `get_budget_usage(category)` | Returns allocated, spent, remaining, pct_used, is_overspent. |
+| `archive_budget(budget)` / `restore_budget(budget)` | Toggle active status. |
 
 ## Dependent
 
 | Method | Description |
 |---|---|
-| `dependent.add_dependent(name, relation)` | Creates a Dependent + linked restricted User. |
-| `dependent.allocate_pocket_money(dependent, month, amount)` | |
-| `dependent.get_pocket_money_status(dependent, month=None)` | Remaining balance. |
-| `dependent.rollover_pocket_money(dependent, from_month, to_month)` | Moves unused balance into "savings". |
+| `create_dependent(dependent_name, relationship, default_monthly_allowance, ...)` | Creates a dependent for the logged-in guardian. |
+| `get_dependent(dependent)` | Single dependent by name. |
+| `update_dependent(dependent, ...)` | Updates dependent fields. |
+| `delete_dependent(dependent)` | Deletes a dependent (fails if referenced). |
+| `list_dependents(active_only=False)` | All dependents for the logged-in guardian. |
+| `archive_dependent(dependent)` / `restore_dependent(dependent)` | Toggle active status. |
+
+## Pocket Money
+
+| Method | Description |
+|---|---|
+| `create_allocation(dependent, allocated_amount, allocation_period, ...)` | Creates a pocket money allocation. |
+| `get_allocation(allocation)` | Single allocation by name. |
+| `update_allocation(allocation, ...)` | Updates allocation fields. |
+| `delete_allocation(allocation)` | Deletes an allocation. |
+| `list_allocations(dependent=None, active_only=False)` | All allocations for the logged-in guardian. |
+| `get_balance(dependent)` | Returns allocated, spent, carry_forward, remaining. |
+| `rollover(dependent)` | Rolls over expired allocation with carry-forward. |
 
 ## Reports
 
 | Method | Description |
 |---|---|
-| `report.weekly_summary(owner=None)` | Returns totals by category for the current week + a chart-ready dataset. |
-| `report.monthly_summary(owner=None, month=None)` | Same, monthly. |
-| `report.generate_chart_png(dataset)` | Renders a PNG (used by the Telegram `/report` handler to send an image). |
+| `get_expense_summary(dependent=None, date_from=None, date_to=None)` | Total amount, count, average for a date range. |
+| `get_budget_summary(category=None)` | Budget usage per category. |
+| `get_category_breakdown(dependent=None, date_from=None, date_to=None)` | Expense totals grouped by category. |
+| `get_monthly_report(dependent=None, year=None)` | Monthly totals for a year. |
+| `get_dashboard()` | High-level dashboard: total, monthly, active budgets, over-budget count, dependents. |
 
 ## Telegram Linking
 
 | Method | Description |
 |---|---|
-| `telegram_link.generate_otp(telegram_id)` | Returns OTP, stores it with a 5-minute expiry. |
-| `telegram_link.verify_otp(otp, user)` | Called from the desk/linking page, not from Telegram. |
-| `telegram_link.unlink(telegram_id)` | |
+| `generate_link_code()` | POST. Generates a short-lived token for the logged-in user. Returns `{token, expires_at}`. |
+| `get_link_status()` | GET. Returns `{linked: bool}` for the logged-in user. |
+| `unlink()` | POST. Deactivates the current link. Idempotent. |
 
 ## Conventions
 
-- All list-returning methods support standard Frappe `filters`/`limit`/`order_by`
-  kwargs where practical.
-- All methods raise `frappe.ValidationError` (or a subclass) on bad input;
-  callers are responsible for translating that into a user-facing message
-  (see `docs/error_handling.md`).
-- Amounts are always Indian Rupees (₹) as `Currency` fieldtype; no
-  multi-currency support in this phase.
-- Every whitelisted method must have a matching unit test — see
-  `docs/testing_strategy.md`.
+- All methods raise `frappe.ValidationError` (via service exceptions) on bad input.
+- Amounts are always Indian Rupees (₹) as `Currency` fieldtype.
+- Every whitelisted method has matching unit tests.
+- The Telegram voice path creates expenses through `TelegramService`,
+  not through `api/expenses.py`.

@@ -1,49 +1,55 @@
 # Roadmap
 
-Tracks what's built vs. planned. Update the "Completed" section at the end
-of every phase (see `docs/codex_workflow.md`).
-
-## Phase Plan (summary — full prompts in `docs/codex_workflow.md`)
-
-1. Project analysis (read-only) — `PROJECT_ANALYSIS.md`
-2. Telegram architecture design (docs only)
-3. Folder/module skeletons (no logic)
-4. Telegram configuration (secrets, environment)
-5. Webhook receive + verify + log (no command handling)
-6. Command routing (`/start`, `/help`, `/link`, `/unlink`, unknown)
-7. Account linking (OTP flow)
-8. Voice message receive/download (no transcription yet)
-9. Sarvam AI speech-to-text integration
-10. OpenAI GPT expense parsing (text → JSON)
-11. Expense creation from parsed JSON
-12. Reports (`/report weekly|monthly`, chart PNGs)
-13. Budget alerts (Telegram notification on overspend)
-14. *(future)* Pocket money allocation + rollover for Dependents
-15. *(future)* Dependent-specific commands (`/pocketmoney`)
-16. *(future)* Production deployment (VPS/Nginx/Supervisor) — see
-    `docs/deployment.md` for what's deferred vs. in scope now
+Tracks what's built vs. planned. See `docs/codex_workflow.md` for the
+original phase-by-phase prompts.
 
 ## Completed
 
-_(Codex/you: append one line per finished phase here, with date.)_
+| Phase | Description | Date |
+|---|---|---|
+| 1 | Project analysis (read-only) | 2026-07-22 |
+| 2 | Telegram architecture doc | 2026-07-22 |
+| 3 | Folder skeleton (empty modules) | 2026-07-22 |
+| 4 | Telegram configuration (secrets, environment) | 2026-07-22 |
+| 5 | Webhook receive + verify + log + enqueue | 2026-07-22 |
+| 6 | Command routing (/start, /help, /link, /unlink, unknown) | 2026-07-22 |
+| 7 | Account linking (token-based flow) | 2026-07-22 |
+| 8 | Voice message receive/download | 2026-07-22 |
+| 9 | Sarvam AI speech-to-text integration | 2026-07-22 |
+| 10 | OpenAI GPT expense parsing (text → JSON) | 2026-07-22 |
+| 11 | Expense creation from parsed JSON | 2026-07-22 |
+| 12 | Reports (Query Reports, Telegram rendering) | 2026-07-22 |
+| 13 | Budget alerts (daily scheduled job) | 2026-07-22 |
+| 14 | Full service layer (8 services, typed exceptions) | 2026-07-23 |
+| 15 | REST API (7 whitelisted endpoint modules) | 2026-07-23 |
+| 16 | Dependent management + pocket money allocation | 2026-07-23 |
+| 17 | Pocket money rollover (daily scheduled job) | 2026-07-23 |
+| 18 | Daily reminders (no-expenses, weekly/monthly summary, low balance) | 2026-07-24 |
+| 19 | Extended Telegram commands (expenses, categories, budgets, balance, dependents, pocketmoney, savings, rollover, profile, settings) | 2026-07-24 |
+| 20 | Five Frappe Query Reports | 2026-07-24 |
+| 21 | Service unit tests (269 tests) | 2026-07-25 |
+| 22 | Integration tests (21 cross-service workflow tests, 290 total) | 2026-07-25 |
+| 23 | Security audit (ignore_permissions, guardian cross-checks, allow_rename fix) | 2026-07-27 |
 
-- [ ] Phase 1 — Project analysis
-- [ ] Phase 2 — Telegram architecture doc
-- [ ] Phase 3 — Folder skeleton
-- [x] Phase 4 — Telegram config (2026-07-22)
-- [x] Phase 5 — Webhook receive (2026-07-22)
-- [x] Phase 6 — Command routing (2026-07-22)
-- [ ] Phase 7 — Account linking
-- [ ] Phase 8 — Voice receive/download
-- [ ] Phase 9 — Sarvam AI integration
-- [ ] Phase 10 — OpenAI GPT parsing
-- [ ] Phase 11 — Expense creation
-- [ ] Phase 12 — Reports
-- [ ] Phase 13 — Budget alerts
+## In Progress
+
+_(none)_
+
+## Planned
+
+- Production deployment (VPS, Nginx, Supervisor, TLS)
+- Webhook management UI in Desk
+- Bulk expense import
+- Export to CSV/PDF
+- Multi-currency support
+- Non-Telegram bot channels (WhatsApp, etc.)
+- Mobile app
+- Chart image generation for Telegram (PNG reports)
+- Dependent-specific role permissions (currently admin-only Desk access)
 
 ## Explicitly Out of Scope (for now)
 
 - Multi-currency
 - Non-Telegram bot channels (WhatsApp, etc.)
-- Production/VPS deployment (deferred — current phase targets local bench only)
+- Production/VPS deployment (deferred — current target is local bench only)
 - Mobile app

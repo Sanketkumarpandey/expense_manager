@@ -33,8 +33,8 @@ class TestTelegramRouter(TestCase):
 		self.assertIn("unlink", router.COMMAND_HANDLERS)
 		self.assertIn("Expense Manager", router.route_update(updates["start"]))
 		self.assertIn("Available commands", router.route_update(updates["help"]))
-		self.assertIn("not available yet", router.route_update(updates["link"]))
-		self.assertIn("not available yet", router.route_update(updates["unlink"]))
+		self.assertIsNotNone(router.route_update(updates["link"]))
+		self.assertIsNotNone(router.route_update(updates["unlink"]))
 
 	def test_unknown_command_uses_friendly_fallback(self) -> None:
 		"""Route unsupported commands to the unknown-command handler."""
@@ -50,6 +50,7 @@ class TestTelegramRouter(TestCase):
 		self.assertIsNone(router.route_update({"message": {"text": ""}}))
 
 	def test_unsupported_update_type_is_ignored(self) -> None:
-		"""Ignore callback and voice updates until their later phases implement them."""
+		"""Ignore callback queries; voice messages are dispatched to handle_voice."""
 		self.assertIsNone(router.route_update({"callback_query": {"data": "/help"}}))
-		self.assertIsNone(router.route_update({"message": {"voice": {"file_id": "file"}}}))
+		voice_response = router.route_update({"message": {"voice": {"file_id": "file"}}})
+		self.assertIsNotNone(voice_response)

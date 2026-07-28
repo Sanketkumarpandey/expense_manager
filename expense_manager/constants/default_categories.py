@@ -1,4 +1,4 @@
-default_categories = [
+DEFAULT_CATEGORIES = [
             ("Food", "🍽️"),
             ("Transport", "🚌"),
             ("Shopping", "🛒"),

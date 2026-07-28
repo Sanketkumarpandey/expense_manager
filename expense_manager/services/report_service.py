@@ -224,6 +224,59 @@ class ReportService:
         return ReportService._build_dashboard(owner_user)
 
     # ------------------------------------------------------------------
+    # Notification message builders (called by jobs/reminders.py)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def build_no_expenses_today_message(owner_user: str) -> str | None:
+        """Return a nudge reminder if the user has not logged any expenses today."""
+        expenses = ReportService._get_expenses(
+            owner_user, date_from=today(), date_to=today()
+        )
+        if expenses:
+            return None
+        return "You haven't logged any expenses today. Send /help to see how to add one."
+
+    @staticmethod
+    def build_weekly_summary_message(owner_user: str) -> str | None:
+        """Return a weekly spending summary, or None if no expenses this week."""
+        from frappe.utils import add_days
+
+        date_to = getdate(today())
+        date_from = add_days(date_to, -6)
+
+        breakdown = ReportService.get_category_breakdown(
+            owner_user, date_from=date_from, date_to=date_to
+        )
+        if not breakdown:
+            return None
+
+        total = sum(row["total_amount"] for row in breakdown)
+        lines = [f"Weekly summary ({date_from} to {date_to}):"]
+        for row in breakdown[:5]:
+            lines.append(f"  {row['category_name']}: {row['total_amount']}")
+        lines.append(f"  Total: {total}")
+        return "\n".join(lines)
+
+    @staticmethod
+    def build_monthly_summary_message(owner_user: str) -> str | None:
+        """Return a monthly spending summary, or None if no expenses this month."""
+        month_start = get_first_day(today())
+
+        breakdown = ReportService.get_category_breakdown(
+            owner_user, date_from=month_start, date_to=today()
+        )
+        if not breakdown:
+            return None
+
+        total = sum(row["total_amount"] for row in breakdown)
+        lines = [f"Monthly summary ({month_start} to {today()}):"]
+        for row in breakdown[:5]:
+            lines.append(f"  {row['category_name']}: {row['total_amount']}")
+        lines.append(f"  Total: {total}")
+        return "\n".join(lines)
+
+    # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 

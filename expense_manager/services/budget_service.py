@@ -6,6 +6,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt
+from frappe.utils import getdate
 
 from expense_manager.services.exceptions import (
     BudgetAlreadyExistsError,
@@ -18,6 +19,7 @@ from expense_manager.services.exceptions import (
 from expense_manager.services.category_service import CategoryService
 from expense_manager.constants.budget import BudgetPeriod
 from expense_manager.utils.logger import logger
+from expense_manager.utils.helpers import escape_like
 
 
 _UNSET = object()
@@ -60,10 +62,11 @@ class BudgetService:
                 "alert_threshold_pct": alert_threshold_pct,
                 "notes": notes,
                 "is_active": 1,
-            }
+            },
+            ignore_permissions=True,
         )
 
-        budget.insert()
+        budget.insert(ignore_permissions=True)
 
         BudgetService.refresh_budget(owner_user, category)
 
@@ -117,7 +120,7 @@ class BudgetService:
         if notes is not _UNSET:
             doc.notes = notes
 
-        doc.save()
+        doc.save(ignore_permissions=True)
 
         BudgetService.refresh_budget(owner_user, doc.category)
 
@@ -136,7 +139,7 @@ class BudgetService:
     ) -> None:
         doc = BudgetService._get_budget(owner_user, budget)
 
-        doc.delete()
+        doc.delete(ignore_permissions=True)
 
         logger.info(
             "Budget deleted | owner=%s | id=%s",
@@ -204,7 +207,7 @@ class BudgetService:
 
         filters = {
             "owner_user": owner_user,
-            "notes": ["like", f"%{search_text.strip()}%"],
+            "notes": ["like", f"%{escape_like(search_text.strip())}%"],
         }
 
         if active_only:
@@ -266,7 +269,7 @@ class BudgetService:
         )
 
         budget.spent_amount = spent_amount
-        budget.save()
+        budget.save(ignore_permissions=True)
 
         BudgetService._check_overspend(budget)
 
@@ -284,7 +287,7 @@ class BudgetService:
         budget: str,
     ) -> Document:
         try:
-            doc = frappe.get_doc("Budget", budget)
+            doc = frappe.get_doc("Budget", budget, ignore_permissions=True)
 
         except frappe.DoesNotExistError as exc:
             raise BudgetNotFoundError(
@@ -316,7 +319,7 @@ class BudgetService:
         if not name:
             return None
 
-        return frappe.get_doc("Budget", name)
+        return frappe.get_doc("Budget", name, ignore_permissions=True)
 
     @staticmethod
     def _calculate_spent_amount(
@@ -376,7 +379,7 @@ class BudgetService:
             return doc
 
         doc.is_active = is_active
-        doc.save()
+        doc.save(ignore_permissions=True)
 
         logger.info(
             "Budget %s | owner=%s | id=%s",
@@ -449,3 +452,55 @@ class BudgetService:
             )
 
         return pct
+
+    @staticmethod
+    def list_all_active_budgets() -> list[dict]:
+        """
+        System-level only — bypasses per-user ownership scoping.
+        Never call this from a handler or API method; only from a
+        scheduled job that has no single acting user.
+        """
+        return frappe.get_all(
+            "Budget",
+            filters={"is_active": 1},
+            fields=["name", "owner_user", "category", "alert_threshold_pct"],
+        )
+
+    @staticmethod
+    def build_budget_alert_message(category_name: str, usage: dict) -> str:
+        label = "over budget" if usage["is_overspent"] else "close to your budget"
+        return (
+            f"\u26a0\ufe0f You're {label} in {category_name}: {usage['spent_amount']} spent of "
+            f"{usage['allocated_amount']} allocated ({usage['pct_used']}%)."
+        )
+
+    @staticmethod
+    def can_send_budget_alert(owner_user: str, budget: str) -> bool:
+        doc = BudgetService._get_budget(owner_user, budget)
+
+        if not doc.last_alert_sent_on:
+            return True
+
+        return getdate(doc.last_alert_sent_on) != getdate(frappe.utils.today())
+
+    @staticmethod
+    def mark_budget_alert_sent(owner_user: str, budget: str) -> None:
+        doc = BudgetService._get_budget(owner_user, budget)
+        doc.last_alert_sent_on = frappe.utils.today()
+        doc.save(ignore_permissions=True)
+
+    @staticmethod
+    def try_claim_budget_alert(owner_user: str, budget: str) -> bool:
+        """Atomically check if an alert can be sent today and mark it as sent.
+
+        Returns True if the alert was claimed (caller should send it),
+        False if already sent today or budget not found.
+        """
+        doc = BudgetService._get_budget(owner_user, budget)
+
+        if doc.last_alert_sent_on and getdate(doc.last_alert_sent_on) == getdate(frappe.utils.today()):
+            return False
+
+        doc.last_alert_sent_on = frappe.utils.today()
+        doc.save(ignore_permissions=True)
+        return True

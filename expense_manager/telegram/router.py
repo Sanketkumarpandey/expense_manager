@@ -95,7 +95,7 @@ def route_update(update: dict[str, object]) -> str | None:
 		frappe.logger("expense_manager").exception(
 			"telegram_router status=error"
 		)
-		return None
+		return "Sorry, something went wrong. Please try again later."
 
 
 def _get_message(update: dict[str, object]) -> dict[str, object] | None:

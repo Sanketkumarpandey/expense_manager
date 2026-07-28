@@ -32,7 +32,7 @@ class Category(Document):
     def validate_duplicate_category(self):
         existing_categories = frappe.get_all(
             "Category",
-            filters={"name": ["!=", self.name]},
+            filters={"name": ["!=", self.name], "owner_user": self.owner_user},
             fields=["name", "category_name"],
         )
 

@@ -18,6 +18,7 @@ from expense_manager.services.exceptions import (
     TelegramUserNotFoundError,
 )
 from expense_manager.utils.logger import logger
+from expense_manager.utils.helpers import escape_like
 
 
 # TODO: move to expense_manager.constants.telegram once that module's
@@ -149,9 +150,10 @@ class TelegramLinkService:
                 "language_code": language_code,
                 "is_active": 1,
                 "linked_on": now_datetime(),
-            }
+            },
+            ignore_permissions=True,
         )
-        doc.insert()
+        doc.insert(ignore_permissions=True)
 
         frappe.cache().delete_value(cache_key)
 
@@ -182,9 +184,9 @@ class TelegramLinkService:
         if not name:
             return
 
-        doc = frappe.get_doc("Telegram Link", name)
+        doc = frappe.get_doc("Telegram Link", name, ignore_permissions=True)
         doc.is_active = 0
-        doc.save()
+        doc.save(ignore_permissions=True)
 
         logger.info(
             "Telegram account unlinked | user=%s | id=%s",
@@ -265,7 +267,7 @@ class TelegramLinkService:
         by_user = frappe.get_all(
             "Telegram Link",
             filters={
-                "user": ["like", f"%{search_text}%"],
+                "user": ["like", f"%{escape_like(search_text)}%"],
                 **active_filter,
             },
             fields=["name", "user", "telegram_user_id", "telegram_username"],
@@ -274,7 +276,7 @@ class TelegramLinkService:
         by_username = frappe.get_all(
             "Telegram Link",
             filters={
-                "telegram_username": ["like", f"%{search_text}%"],
+                "telegram_username": ["like", f"%{escape_like(search_text)}%"],
                 **active_filter,
             },
             fields=["name", "user", "telegram_user_id", "telegram_username"],
@@ -316,7 +318,7 @@ class TelegramLinkService:
         if not name:
             return
 
-        doc = frappe.get_doc("Telegram Link", name)
+        doc = frappe.get_doc("Telegram Link", name, ignore_permissions=True)
         changed = False
 
         for field, value in (
@@ -330,7 +332,7 @@ class TelegramLinkService:
                 changed = True
 
         if changed:
-            doc.save()
+            doc.save(ignore_permissions=True)
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -349,7 +351,7 @@ class TelegramLinkService:
                 _("This user does not have a linked Telegram account.")
             )
 
-        return frappe.get_doc("Telegram Link", name)
+        return frappe.get_doc("Telegram Link", name, ignore_permissions=True)
 
     @staticmethod
     def _validate_user(user: str) -> None:

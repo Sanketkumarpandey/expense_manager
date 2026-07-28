@@ -117,7 +117,7 @@ class ExpenseService:
         if payment_method is not _UNSET:
             doc.payment_method = payment_method
 
-        doc.save()
+        doc.save(ignore_permissions=True)
 
         BudgetService.refresh_budget(owner_user, old_category)
         if old_category != doc.category:
@@ -147,7 +147,7 @@ class ExpenseService:
         dependent = doc.dependent
         expense_id = doc.name
 
-        doc.delete()
+        doc.delete(ignore_permissions=True)
 
         BudgetService.refresh_budget(owner, category)
         PocketMoneyService.refresh_balance(owner, dependent)
@@ -247,9 +247,10 @@ class ExpenseService:
             {
                 "doctype": "Expense",
                 **fields,
-            }
+            },
+            ignore_permissions=True,
         )
-        doc.insert()
+        doc.insert(ignore_permissions=True)
         return doc
 
     @staticmethod
@@ -258,7 +259,7 @@ class ExpenseService:
         expense: str,
     ) -> Document:
         try:
-            doc = frappe.get_doc("Expense", expense)
+            doc = frappe.get_doc("Expense", expense, ignore_permissions=True)
 
         except frappe.DoesNotExistError as exc:
             raise ExpenseNotFoundError(
@@ -287,7 +288,6 @@ class ExpenseService:
         if dependent is not None:
             DependentService.get_dependent(owner_user, dependent)
 
-			
     @staticmethod
     def _validate_amount(amount: float) -> float:
         if amount is None:

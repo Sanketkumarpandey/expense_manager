@@ -56,5 +56,5 @@ def handle_balance(update: dict[str, object]) -> str:
 
 	lines = ["Your budget balances:"]
 	for budget in budgets:
-		lines.append(f"- {budget.get('category')}: remaining {budget.get('remaining_amount', '')}")
+		lines.append(f"- {budget.get('category_name', budget.get('category'))}: remaining {budget.get('remaining_amount', '')}")
 	return "\n".join(lines)

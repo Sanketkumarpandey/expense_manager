@@ -20,7 +20,7 @@ def handle_expenses(update: dict[str, object]) -> str:
 	lines = ["Your recent expenses:"]
 	for expense in expenses:
 		lines.append(
-			f"- {expense.get('expense_date')} | {expense.get('category')} | {expense.get('amount')}"
+			f"- {expense.get('expense_date')} | {expense.get('category_name', expense.get('category'))} | {expense.get('amount')}"
 		)
 	return "\n".join(lines)
 

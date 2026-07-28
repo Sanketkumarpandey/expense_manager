@@ -13,6 +13,7 @@ from expense_manager.services.exceptions import (
     CategoryInUseError,
 )
 from expense_manager.utils.logger import logger
+from expense_manager.utils.helpers import escape_like
 
 
 class CategoryService:
@@ -48,10 +49,11 @@ class CategoryService:
                 "category_name": category_name,
                 "icon": icon,
                 "is_active": 1,
-            }
+            },
+            ignore_permissions=True,
         )
 
-        category.insert()
+        category.insert(ignore_permissions=True)
 
         logger.info(
             "Category created | owner=%s | category=%s | id=%s",
@@ -106,7 +108,7 @@ class CategoryService:
         """
 
         try:
-            doc = frappe.get_doc("Category", category)
+            doc = frappe.get_doc("Category", category, ignore_permissions=True)
 
         except frappe.DoesNotExistError:
             raise CategoryNotFoundError(
@@ -169,7 +171,7 @@ class CategoryService:
         if is_active is not None:
             doc.is_active = is_active
 
-        doc.save()
+        doc.save(ignore_permissions=True)
 
         logger.info(
             "Category updated | owner=%s | id=%s",
@@ -251,7 +253,7 @@ class CategoryService:
             "owner_user": owner_user,
             "category_name": [
                 "like",
-                f"%{search_text.strip()}%",
+                f"%{escape_like(search_text.strip())}%",
             ],
         }
 
@@ -286,7 +288,7 @@ class CategoryService:
 
         CategoryService._validate_delete(doc)
 
-        doc.delete()
+        doc.delete(ignore_permissions=True)
 
         logger.info(
             "Category deleted | owner=%s | id=%s",
@@ -341,7 +343,7 @@ class CategoryService:
             return doc
 
         doc.is_active = is_active
-        doc.save()
+        doc.save(ignore_permissions=True)
 
         logger.info(
             "Category %s | owner=%s | id=%s",
