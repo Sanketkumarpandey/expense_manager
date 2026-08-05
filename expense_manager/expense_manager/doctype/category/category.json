@@ -6,44 +6,51 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "category_name",
-  "icon",
-  "column_break_djhy",
-  "owner_user",
-  "is_active"
- ],
- "fields": [
-  {
-   "fieldname": "category_name",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Category Name",
-   "reqd": 1
-  },
-  {
-   "fieldname": "icon",
-   "fieldtype": "Data",
-   "label": "Icon"
-  },
-  {
-   "fieldname": "column_break_djhy",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "owner_user",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Owner User",
-   "options": "User",
-   "reqd": 1
-  },
-  {
-   "default": "1",
-   "fieldname": "is_active",
-   "fieldtype": "Check",
-   "label": "Is Active"
-  }
- ],
+   "category_name",
+   "icon",
+   "column_break_djhy",
+   "owner_user",
+   "dependent",
+   "is_active"
+  ],
+  "fields": [
+   {
+    "fieldname": "category_name",
+    "fieldtype": "Data",
+    "in_list_view": 1,
+    "label": "Category Name",
+    "reqd": 1
+   },
+   {
+    "fieldname": "icon",
+    "fieldtype": "Data",
+    "label": "Icon"
+   },
+   {
+    "fieldname": "column_break_djhy",
+    "fieldtype": "Column Break"
+   },
+   {
+    "fieldname": "owner_user",
+    "fieldtype": "Link",
+    "in_list_view": 1,
+    "label": "Owner User",
+    "options": "User",
+    "reqd": 1
+   },
+   {
+    "fieldname": "dependent",
+    "fieldtype": "Link",
+    "label": "Dependent",
+    "options": "Dependent"
+   },
+   {
+    "default": "1",
+    "fieldname": "is_active",
+    "fieldtype": "Check",
+    "label": "Is Active"
+   }
+  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],

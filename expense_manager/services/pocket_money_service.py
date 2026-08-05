@@ -11,6 +11,8 @@ from expense_manager.services.exceptions import (
     DependentNotFoundError,
     PocketMoneyAllocationNotFoundError,
     PocketMoneyAllocationAlreadyExistsError,
+    PocketMoneyNotAllocatedError,
+    PocketMoneyExceededError,
     InvalidAllocationAmountError,
     InvalidAllocationPeriodError,
     InvalidAllocationDateError,
@@ -75,6 +77,9 @@ class PocketMoneyService:
         allocation.insert(ignore_permissions=True)
 
         PocketMoneyService.refresh_balance(guardian, dependent)
+
+        if allocated_amount > 0:
+            PocketMoneyService._clear_pending_allocation_on_dependent(dependent)
 
         logger.info(
             "Pocket money allocation created | guardian=%s | dependent=%s | id=%s | allocated=%s",
@@ -268,17 +273,21 @@ class PocketMoneyService:
             period_end,
         )
 
-        remaining_amount = (
-            allocation.allocated_amount + allocation.carry_forward_amount - spent_amount
-        )
+        allocated_val = round(flt(allocation.allocated_amount), 2)
+        spent_val = round(flt(spent_amount), 2)
+        carry_val = round(flt(allocation.carry_forward_amount), 2)
+        remaining_amount = round(allocated_val + carry_val - spent_val, 2)
+
+        dependent_doc = DependentService.get_dependent(guardian, dependent)
 
         return {
             "allocation": allocation.name,
-            "allocated_amount": allocation.allocated_amount,
-            "spent_amount": spent_amount,
-            "carry_forward": allocation.carry_forward_amount,
+            "allocated_amount": allocated_val,
+            "spent_amount": spent_val,
+            "carry_forward": carry_val,
             "remaining_amount": remaining_amount,
-            "available_amount": remaining_amount,
+            "available_amount": max(0.0, remaining_amount),
+            "total_savings": round(flt(getattr(dependent_doc, "total_savings", 0)), 2),
         }
 
     @staticmethod
@@ -315,8 +324,9 @@ class PocketMoneyService:
             period_end,
         )
 
-        remaining_amount = (
-            allocation.allocated_amount + allocation.carry_forward_amount - spent_amount
+        remaining_amount = max(
+            0,
+            allocation.allocated_amount + allocation.carry_forward_amount - spent_amount,
         )
 
         allocation.total_available_amount = remaining_amount
@@ -329,6 +339,32 @@ class PocketMoneyService:
             allocation.name,
             remaining_amount,
         )
+
+    @staticmethod
+    def enforce_available_balance(
+        guardian: str,
+        dependent: str,
+        amount: float,
+    ) -> None:
+        """Hard-block: raise unless the dependent's live pocket money can
+        cover the expense amount. Raised when the balance is exhausted or no
+        active allocation exists (e.g. a zero-amount post-rollover placeholder
+        awaiting a top-up). Call before creating the expense.
+        """
+        balance = PocketMoneyService.get_balance(guardian, dependent)
+
+        if balance is None:
+            raise PocketMoneyNotAllocatedError(
+                _("You don't have any pocket money yet. Ask your guardian to top you up.")
+            )
+
+        available = flt(balance.get("available_amount", 0))
+        if available < amount:
+            raise PocketMoneyExceededError(
+                _("Not enough pocket money: ₹{0} available but this costs ₹{1}. Ask your guardian to top you up.").format(
+                    available, amount
+                )
+            )
 
     # ------------------------------------------------------------------
     # Notification message builders (called by jobs/reminders.py)
@@ -361,6 +397,51 @@ class PocketMoneyService:
                 )
 
         return messages
+
+    # ------------------------------------------------------------------
+    # Pending allocation reminders (called by jobs/pending_allocation_reminders.py)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def list_dependents_pending_allocation() -> list[dict]:
+        """System-level only — returns all active dependents with
+        pending_allocation_since set.  Bypasses per-user ownership
+        scoping, intended for the daily reminder job only."""
+        return frappe.get_all(
+            "Dependent",
+            filters={
+                "is_active": 1,
+                "pending_allocation_since": ["is", "set"],
+            },
+            fields=[
+                "name", "dependent_name", "guardian",
+                "total_savings", "pending_allocation_since",
+                "last_allocation_reminder_on",
+            ],
+        )
+
+    @staticmethod
+    def _clear_pending_allocation_on_dependent(dependent_name: str) -> None:
+        dep = frappe.get_doc("Dependent", dependent_name, ignore_permissions=True)
+        if dep.get("pending_allocation_since"):
+            dep.pending_allocation_since = None
+            dep.last_allocation_reminder_on = None
+            dep.save(ignore_permissions=True)
+
+    @staticmethod
+    def try_claim_pending_allocation_reminder(dependent_name: str) -> bool:
+        """Check if a pending-allocation reminder can be sent today
+        and mark it as sent.  Returns True if the caller should send
+        the message, False if already sent today or not pending."""
+        dep = frappe.get_doc("Dependent", dependent_name, ignore_permissions=True)
+        if not dep.get("pending_allocation_since"):
+            return False
+        if dep.get("last_allocation_reminder_on") and \
+           getdate(dep.last_allocation_reminder_on) == getdate(frappe_today()):
+            return False
+        dep.last_allocation_reminder_on = frappe_today()
+        dep.save(ignore_permissions=True)
+        return True
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -502,9 +583,9 @@ class PocketMoneyService:
                 _("Allocated amount must be numeric.")
             )
 
-        if amount <= 0:
+        if amount < 0:
             raise InvalidAllocationAmountError(
-                _("Allocated amount must be greater than zero.")
+                _("Allocated amount must not be negative.")
             )
 
         return amount
@@ -557,27 +638,42 @@ class PocketMoneyService:
                 _("No active pocket money allocation to roll over.")
             )
 
-        dependent_doc = DependentService.get_dependent(guardian, dependent)
         balance = PocketMoneyService.get_balance(guardian, dependent)
         remaining = balance["remaining_amount"] if balance else 0.0
-        carry_forward = remaining if dependent_doc.allow_carry_forward and remaining > 0 else 0.0
 
         current.is_active = 0
         current.save(ignore_permissions=True)
 
+        dependent_doc = DependentService.get_dependent(guardian, dependent)
+        needs_save = False
+
+        # Unused balance rolls into the dependent's savings ledger on the
+        # Dependent doc (roadmap phase 24), separate from the spendable
+        # allocation. When carry-forward is disabled the unused amount is
+        # forfeited instead of being added to savings.
+        if remaining > 0 and dependent_doc.get("allow_carry_forward", True):
+            dependent_doc.total_savings = (
+                flt(dependent_doc.get("total_savings", 0)) + remaining
+            )
+            needs_save = True
+
+        if not dependent_doc.get("pending_allocation_since"):
+            dependent_doc.pending_allocation_since = frappe_today()
+            needs_save = True
+        if needs_save:
+            dependent_doc.save(ignore_permissions=True)
+
         new_allocation = PocketMoneyService.create_allocation(
             guardian=guardian,
             dependent=dependent,
-            allocated_amount=dependent_doc.default_monthly_allowance,
+            allocated_amount=0.0,
             allocation_period=current.allocation_period,
             allocation_date=frappe_today(),
-            carry_forward_amount=carry_forward,
+            carry_forward_amount=0.0,
             remarks=_("Rolled over from previous period"),
         )
-
         logger.info(
-            "Pocket money rolled over | guardian=%s | dependent=%s | old_id=%s | new_id=%s | carried_forward=%s",
-            guardian, dependent, current.name, new_allocation.name, carry_forward,
+            "Pocket money rolled over | guardian=%s | dependent=%s | old_id=%s | new_id=%s | savings_added=%s",
+            guardian, dependent, current.name, new_allocation.name, remaining,
         )
-
         return new_allocation

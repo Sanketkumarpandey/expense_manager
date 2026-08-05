@@ -12,3 +12,7 @@ class ExpenseParsingError(AIError):
 
 class LowConfidencePredictionError(AIError):
     """Raised when AI confidence is below the acceptable threshold."""
+
+
+class IncomeDetectedError(AIError):
+    """Raised when the input describes incoming money, not an expense."""

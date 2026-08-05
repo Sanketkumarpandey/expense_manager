@@ -1,0 +1,25 @@
+{
+ "doctype": "Report",
+ "report_type": "Script Report",
+ "ref_doctype": "Dependent",
+ "report_name": "Dependent Expenses",
+ "name": "Dependent Expenses",
+ "module": "Expense Manager",
+ "is_standard": "Yes",
+ "disabled": 0,
+ "prepared_report": 0,
+ "filters": [
+  {
+   "fieldname": "dependent",
+   "label": "Dependent",
+   "fieldtype": "Link",
+   "options": "Dependent",
+   "reqd": 1
+  }
+ ],
+ "roles": [
+  {
+   "role": "System Manager"
+  }
+ ]
+}

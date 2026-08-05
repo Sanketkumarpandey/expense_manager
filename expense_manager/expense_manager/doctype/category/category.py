@@ -30,9 +30,15 @@ class Category(Document):
             frappe.throw(_("Category Name cannot be empty."))
 
     def validate_duplicate_category(self):
+        filters = {"name": ["!=", self.name], "owner_user": self.owner_user}
+        if self.dependent:
+            filters["dependent"] = self.dependent
+        else:
+            filters["dependent"] = ["is", "not set"]
+
         existing_categories = frappe.get_all(
             "Category",
-            filters={"name": ["!=", self.name], "owner_user": self.owner_user},
+            filters=filters,
             fields=["name", "category_name"],
         )
 

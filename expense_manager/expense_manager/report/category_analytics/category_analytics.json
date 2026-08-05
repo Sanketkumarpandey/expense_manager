@@ -1,0 +1,46 @@
+{
+ "doctype": "Report",
+ "report_type": "Script Report",
+ "ref_doctype": "Expense",
+ "report_name": "Category Analytics",
+ "name": "Category Analytics",
+ "module": "Expense Manager",
+ "is_standard": "Yes",
+ "disabled": 0,
+ "prepared_report": 0,
+ "filters": [
+  {
+   "fieldname": "month",
+   "label": "Month",
+   "fieldtype": "Select",
+   "options": "\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12",
+   "reqd": 0
+  },
+  {
+   "fieldname": "individual",
+   "label": "Individual",
+   "fieldtype": "Link",
+   "options": "User",
+   "reqd": 0
+  },
+   {
+    "fieldname": "category",
+    "label": "Category",
+    "fieldtype": "Link",
+    "options": "Category",
+    "reqd": 0
+   },
+   {
+    "fieldname": "year",
+    "label": "Year",
+    "fieldtype": "Int",
+    "default": 0,
+    "reqd": 0
+   }
+  ],
+ "roles": [
+  {
+   "role": "System Manager"
+  }
+ ]
+}

@@ -17,7 +17,14 @@ from expense_manager.utils.helpers import escape_like
 
 
 class CategoryService:
-    """Business service for Category operations."""
+    """Business service for Category operations.
+
+    Categories live in a shared, guardian-owned pool (the ``dependent``
+    field on the Category DocType is legacy and unused). Which categories a
+    dependent may use is governed by the dependent's ``allowed_categories``
+    child table — see ``DependentService``. Category ownership here is
+    purely ``doc.owner_user == guardian``.
+    """
 
     @staticmethod
     def create_category(
@@ -88,13 +95,15 @@ class CategoryService:
 
         category_name = CategoryService._normalize_name(category_name)
 
+        filters = {
+            "owner_user": owner_user,
+            "category_name": category_name,
+        }
+
         return bool(
             frappe.db.exists(
                 "Category",
-                {
-                    "owner_user": owner_user,
-                    "category_name": category_name,
-                },
+                filters,
             )
         )
 
@@ -301,7 +310,7 @@ class CategoryService:
         owner_user: str,
     ) -> list[Document]:
         """
-        Create the default categories for a new user.
+        Create the default categories for a user.
         Existing categories are skipped.
         """
 

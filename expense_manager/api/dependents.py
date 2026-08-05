@@ -130,3 +130,58 @@ def search_dependents(search_text=None, active_only=1):
         )
     except ExpenseManagerError as exc:
         return {"success": False, "message": str(exc)}
+
+
+@frappe.whitelist(methods=["GET"])
+def list_allowed_categories(dependent, active_only=1):
+    """List the categories a dependent may use.
+
+    An empty allowed_categories child table means the dependent may use all
+    of the guardian's active categories (the default), which is reflected by
+    this endpoint returning the full guardian category list.
+    """
+    user = _current_user()
+    try:
+        return DependentService.list_allowed_categories(
+            user,
+            dependent,
+            active_only=bool(cint(active_only)),
+        )
+    except ExpenseManagerError as exc:
+        return {"success": False, "message": str(exc)}
+
+
+@frappe.whitelist(methods=["POST"])
+def add_allowed_category(dependent, category):
+    """Explicitly allow a guardian-owned category for a dependent.
+
+    ``category`` may be a Category doc name or a category name. Idempotent:
+    adding an already-allowed category is a no-op.
+    """
+    user = _current_user()
+    try:
+        doc = DependentService.add_allowed_category(user, dependent, category)
+        categories = []
+        for c in (doc.get("allowed_categories") or []):
+            cat_val = c.get("category") if hasattr(c, "get") else getattr(c, "category", None)
+            if cat_val:
+                categories.append(cat_val)
+        return {"success": True, "allowed_categories": categories}
+    except ExpenseManagerError as exc:
+        return {"success": False, "message": str(exc)}
+
+
+@frappe.whitelist(methods=["POST"])
+def remove_allowed_category(dependent, category):
+    """Revoke an allowed category from a dependent's list."""
+    user = _current_user()
+    try:
+        doc = DependentService.remove_allowed_category(user, dependent, category)
+        categories = []
+        for c in (doc.get("allowed_categories") or []):
+            cat_val = c.get("category") if hasattr(c, "get") else getattr(c, "category", None)
+            if cat_val:
+                categories.append(cat_val)
+        return {"success": True, "allowed_categories": categories}
+    except ExpenseManagerError as exc:
+        return {"success": False, "message": str(exc)}

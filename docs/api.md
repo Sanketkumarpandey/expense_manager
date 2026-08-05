@@ -35,13 +35,20 @@ Every method is scoped to `frappe.session.user` via `_current_user()`.
 
 | Method | Description |
 |---|---|
-| `create_budget(category, allocated_amount, period, start_date, end_date, alert_threshold_pct=90, notes=None)` | Creates a budget for the logged-in user. |
-| `get_budget(budget)` | Single budget by name. |
-| `update_budget(budget, ...)` | Updates budget fields. |
-| `delete_budget(budget)` | Deletes a budget. |
-| `list_budgets(category=None, active_only=False)` | All budgets for the logged-in user. |
-| `get_budget_usage(category)` | Returns allocated, spent, remaining, pct_used, is_overspent. |
-| `archive_budget(budget)` / `restore_budget(budget)` | Toggle active status. |
+| `create_budget(category, allocated_amount, period, start_date, end_date, alert_threshold_pct=90, notes=None, dependent=None)` | Creates a budget for the logged-in user. `dependent` unset ⇒ household budget; set ⇒ dependent-scoped budget for that dependent. |
+| `get_budget(budget, dependent=None)` | Single budget by name. |
+| `update_budget(budget, allocated_amount=None, period=None, start_date=None, end_date=None, alert_threshold_pct=None, notes=_API_UNSET, dependent=None)` | Updates budget fields. `notes` uses `_API_UNSET` to distinguish "not supplied" from "explicitly cleared". |
+| `delete_budget(budget, dependent=None)` | Deletes a budget. |
+| `list_budgets(category=None, active_only=0, dependent=None)` | All budgets for the logged-in user. `dependent` set ⇒ only that dependent's budgets (guardian list always has `dependent` unset). |
+| `search_budgets(search_text=None, active_only=1, dependent=None)` | Search by notes text. |
+| `get_budget_usage(category, dependent=None)` | Returns `{budget, allocated_amount, spent_amount, remaining_amount, pct_used, is_overspent, alert_threshold_pct}`. Returns `{success: false, message: "No active budget for this category."}` when none matches. A dependent with no dependent-scoped budget falls back to the household (guardian) budget, so dependent spend still counts toward family usage. |
+| `archive_budget(budget, dependent=None)` / `restore_budget(budget, dependent=None)` | Toggle active status. |
+
+> A household (guardian-level, `dependent` unset) budget counts **every** expense
+> for the category — including dependent-attached ones — as "spent". A
+> dependent-scoped budget counts only that dependent's expenses. `refresh_budget`
+> recomputes the cached `spent_amount` from Expense records on every expense
+> create/update/delete.
 
 ## Dependent
 
@@ -52,6 +59,9 @@ Every method is scoped to `frappe.session.user` via `_current_user()`.
 | `update_dependent(dependent, ...)` | Updates dependent fields. |
 | `delete_dependent(dependent)` | Deletes a dependent (fails if referenced). |
 | `list_dependents(active_only=False)` | All dependents for the logged-in guardian. |
+| `list_allowed_categories(dependent, active_only=True)` | GET. Categories the dependent may use — ALL guardian active categories when `allowed_categories` is empty, else exactly the allowed rows. |
+| `add_allowed_category(dependent, category)` | POST. Allow a guardian-owned category for a dependent. `category` = Category doc name or category name; idempotent. |
+| `remove_allowed_category(dependent, category)` | POST. Revoke an allowed category. Idempotent. |
 | `archive_dependent(dependent)` / `restore_dependent(dependent)` | Toggle active status. |
 
 ## Pocket Money
@@ -86,6 +96,10 @@ Every method is scoped to `frappe.session.user` via `_current_user()`.
 
 ## Conventions
 
+- All whitelisted methods are called via `/api/method/...`; Frappe wraps the
+  return value in `{"message": <result>}`. Success payloads return a bare doc /
+  dict; expected failures return `{"success": false, "message": "..."}` as the
+  `message` value (the REST layer catches `ExpenseManagerError`).
 - All methods raise `frappe.ValidationError` (via service exceptions) on bad input.
 - Amounts are always Indian Rupees (₹) as `Currency` fieldtype.
 - Every whitelisted method has matching unit tests.

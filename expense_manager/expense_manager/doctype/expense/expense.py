@@ -11,6 +11,10 @@ class Expense(Document):
     def before_validate(self):
         self.normalize_fields()
 
+    def before_insert(self):
+        if not self.owner_user:
+            self.owner_user = frappe.session.user
+
     def validate(self):
         self.validate_required_fields()
         self.validate_amount()

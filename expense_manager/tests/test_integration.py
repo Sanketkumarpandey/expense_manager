@@ -12,6 +12,7 @@ from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
 import frappe.utils
+from expense_manager.ai.exceptions import IncomeDetectedError
 
 
 # ---------------------------------------------------------------------------
@@ -39,6 +40,7 @@ def _make_category_doc():
     doc.category_name = "Food"
     doc.owner_user = OWNER
     doc.is_active = 1
+    doc.dependent = None
     return doc
 
 
@@ -47,6 +49,7 @@ def _make_budget_doc(spent=0.0, allocated=5000.0):
     doc.name = BUD_ID
     doc.owner_user = OWNER
     doc.category = CAT_ID
+    doc.dependent = None
     doc.allocated_amount = allocated
     doc.spent_amount = spent
     doc.start_date = "2026-07-01"
@@ -249,6 +252,7 @@ class IntegrationTestCase(TestCase):
                 if dt == "Pocket Money Allocation":
                     new_doc = _make_allocation_doc()
                     new_doc.name = "pm-new-001"
+                    new_doc.allocated_amount = doctype.get("allocated_amount", 2000.0)
                     return new_doc
                 if dt == "Telegram Link":
                     return tl_doc
@@ -380,6 +384,157 @@ class TestVoiceToExpenseWorkflow(IntegrationTestCase):
 
         with self.assertRaises(TelegramNotLinkedError):
             TelegramLinkService.get_user_by_telegram(TG_ID)
+
+
+# =========================================================================
+#  Workflow 3 — Text → AI Parse → Expense → Budget refresh → Reply
+# =========================================================================
+
+class TestTextExpenseWorkflow(IntegrationTestCase):
+    """End-to-end: text input → AI parse → expense created → budget
+    refreshed → success message returned.  Same logic as voice but
+    skips the Sarvam STT step."""
+
+    def setUp(self):
+        super().setUp()
+        self._set_frappe_side_effects(spent=0.0)
+        self._budget_patcher = patch(
+            "expense_manager.services.budget_service.BudgetService._calculate_spent_amount",
+            return_value=0.0,
+        )
+        self._budget_patcher.start()
+
+    def tearDown(self):
+        self._budget_patcher.stop()
+        super().tearDown()
+
+    @patch("expense_manager.ai.ai_parser.get_use_mock_ai_apis", return_value=True)
+    @patch("expense_manager.ai.ai_parser.today", return_value="2026-07-27")
+    def test_text_creates_expense_and_returns_success_message(
+        self, mock_today, mock_parse_mock
+    ):
+        from expense_manager.telegram.services.telegram_service import TelegramService
+
+        result = TelegramService.create_expense_from_text(TG_ID, "lunch 250")
+
+        self.assertTrue(result["success"])
+        self.assertIn("Logged", result["message"])
+        self.assertEqual(result["expense"], EXPENSE_NAME)
+
+    @patch("expense_manager.ai.ai_parser.get_use_mock_ai_apis", return_value=True)
+    @patch("expense_manager.ai.ai_parser.today", return_value="2026-07-27")
+    def test_text_triggers_budget_refresh(
+        self, mock_today, mock_parse_mock
+    ):
+        from expense_manager.services.expense_service import ExpenseService
+
+        ExpenseService.create_expense(
+            owner_user=OWNER,
+            category=CAT_ID,
+            amount=200.0,
+            expense_date="2026-07-27",
+        )
+
+        budget_mod = self._get_mod("budget_service")
+        budget_mod.frappe.get_doc.assert_called()
+
+    def test_text_unlinked_user_returns_error(self):
+        from expense_manager.services.telegram_link_service import TelegramLinkService
+        from expense_manager.services.exceptions import TelegramNotLinkedError
+
+        mod = self._get_mod("telegram_link_service")
+        mod.frappe.db.get_value.side_effect = lambda *a, **kw: None
+
+        with self.assertRaises(TelegramNotLinkedError):
+            TelegramLinkService.get_user_by_telegram(TG_ID)
+
+    @patch("expense_manager.ai.ai_parser.get_use_mock_ai_apis", return_value=True)
+    @patch("expense_manager.ai.ai_parser.today", return_value="2026-07-27")
+    def test_text_dependent_scoped_correctly(
+        self, mock_today, mock_parse_mock
+    ):
+        from expense_manager.services.ai_service import AIService
+        from expense_manager.services.expense_service import ExpenseService
+
+        with patch.object(ExpenseService, "create_expense", return_value=_make_expense_doc()) as mock_create:
+            AIService.create_expense_from_text(OWNER, "snacks 50", dependent=DEP_ID)
+
+        mock_create.assert_called_once()
+        _, kwargs = mock_create.call_args
+        self.assertEqual(kwargs["dependent"], DEP_ID)
+
+
+# =========================================================================
+#  Workflow 4 — Income guardrails (keyword pre-filter + transaction_type)
+# =========================================================================
+
+class TestIncomeGuardrails(IntegrationTestCase):
+    """Keyword pre-filter rejects income/refund phrasings before LLM;
+    transaction_type check catches ambiguous cases after LLM."""
+
+    def setUp(self):
+        super().setUp()
+        self._set_frappe_side_effects(spent=0.0)
+        self._budget_patcher = patch(
+            "expense_manager.services.budget_service.BudgetService._calculate_spent_amount",
+            return_value=0.0,
+        )
+        self._budget_patcher.start()
+
+    def tearDown(self):
+        self._budget_patcher.stop()
+        super().tearDown()
+
+    def _assert_rejected(self, text: str):
+        from expense_manager.telegram.services.telegram_service import TelegramService
+        result = TelegramService.create_expense_from_text(TG_ID, text)
+        self.assertFalse(result["success"])
+        self.assertIn("money coming in", result["message"])
+
+    @patch("expense_manager.ai.ai_parser.get_use_mock_ai_apis", return_value=True)
+    @patch("expense_manager.ai.ai_parser.today", return_value="2026-07-27")
+    def test_refund_keyword_rejected(self, mock_today, mock_ai):
+        self._assert_rejected("got a refund of 200 from Amazon")
+
+    @patch("expense_manager.ai.ai_parser.get_use_mock_ai_apis", return_value=True)
+    @patch("expense_manager.ai.ai_parser.today", return_value="2026-07-27")
+    def test_credit_keyword_rejected(self, mock_today, mock_ai):
+        self._assert_rejected("received 500 credit")
+
+    @patch("expense_manager.ai.ai_parser.get_use_mock_ai_apis", return_value=True)
+    @patch("expense_manager.ai.ai_parser.today", return_value="2026-07-27")
+    def test_cashback_keyword_rejected(self, mock_today, mock_ai):
+        self._assert_rejected("cashback of 30 rupees")
+
+    @patch("expense_manager.ai.ai_parser.get_use_mock_ai_apis", return_value=True)
+    @patch("expense_manager.ai.ai_parser.today", return_value="2026-07-27")
+    def test_got_money_keyword_rejected(self, mock_today, mock_ai):
+        self._assert_rejected("got money from dad")
+
+    @patch("expense_manager.ai.ai_parser.get_use_mock_ai_apis", return_value=True)
+    @patch("expense_manager.ai.ai_parser.today", return_value="2026-07-27")
+    def test_normal_expense_accepted(self, mock_today, mock_ai):
+        from expense_manager.telegram.services.telegram_service import TelegramService
+        result = TelegramService.create_expense_from_text(TG_ID, "lunch 250")
+        self.assertTrue(result["success"])
+        self.assertIn("Logged", result["message"])
+
+    def test_transaction_type_income_rejected(self):
+        """When the parser returns transaction_type=income (not matched by
+        keyword pre-filter), the post-parse check should still reject."""
+        from expense_manager.services.ai_service import AIService
+        with patch("expense_manager.services.ai_service.CategoryService.list_categories",
+                   return_value=[]), \
+             patch("expense_manager.services.ai_service.ai_parser.parse_expense") as mock_parse:
+            mock_parse.return_value = {
+                "amount": 500.0,
+                "category": "Uncategorized",
+                "description": "salary credited",
+                "expense_date": "2026-07-27",
+                "transaction_type": "income",
+            }
+            with self.assertRaises(IncomeDetectedError):
+                AIService.create_expense_from_text(OWNER, "salary credited")
 
 
 # =========================================================================
@@ -528,6 +683,7 @@ class TestPocketMoneyRolloverWorkflow(IntegrationTestCase):
                 if dt == "Pocket Money Allocation":
                     new_doc = _make_allocation_doc()
                     new_doc.name = "pm-new-001"
+                    new_doc.allocated_amount = doctype.get("allocated_amount", 2000.0)
                     return new_doc
                 if dt == "Category":
                     return _make_category_doc()
@@ -561,8 +717,11 @@ class TestPocketMoneyRolloverWorkflow(IntegrationTestCase):
 
         result = PocketMoneyService.rollover_allocation(OWNER, DEP_ID)
 
+        # A new 0-amount allocation is created so a current-month record
+        # always exists. The allocated_amount is 0.0 (not default_monthly_allowance).
         self.assertIsNotNone(result)
         self.assertEqual(result.name, "pm-new-001")
+        self.assertEqual(result.allocated_amount, 0.0)
 
     def test_rollover_raises_when_no_active_allocation(self):
         mod = self._get_mod("pocket_money_service")

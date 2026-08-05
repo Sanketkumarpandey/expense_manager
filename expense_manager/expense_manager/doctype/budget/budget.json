@@ -5,44 +5,51 @@
  "creation": "2026-07-22 17:23:48.299066",
  "doctype": "DocType",
  "engine": "InnoDB",
- "field_order": [
-  "owner_user",
-  "category",
-  "spent_amount",
-  "column_break_prkh",
-  "allocated_amount",
-  "period",
-  "alert_threshold_pct",
-  "last_alert_sent_on",
-  "section_break_odka",
-  "start_date",
-  "column_break_vlrf",
-  "end_date",
-  "section_break_hbsw",
-  "is_active",
-  "notes"
- ],
- "fields": [
-  {
-   "fieldname": "owner_user",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Owner User",
-   "options": "User",
-   "reqd": 1
-  },
-  {
-   "fieldname": "category",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Category",
-   "options": "Category",
-   "reqd": 1
-  },
-  {
-   "fieldname": "column_break_prkh",
-   "fieldtype": "Column Break"
-  },
+  "field_order": [
+   "owner_user",
+   "category",
+   "dependent",
+   "spent_amount",
+   "column_break_prkh",
+   "allocated_amount",
+   "period",
+   "alert_threshold_pct",
+   "last_alert_sent_on",
+   "section_break_odka",
+   "start_date",
+   "column_break_vlrf",
+   "end_date",
+   "section_break_hbsw",
+   "is_active",
+   "notes"
+  ],
+  "fields": [
+   {
+    "fieldname": "owner_user",
+    "fieldtype": "Link",
+    "in_list_view": 1,
+    "label": "Owner User",
+    "options": "User",
+    "reqd": 1
+   },
+   {
+    "fieldname": "category",
+    "fieldtype": "Link",
+    "in_list_view": 1,
+    "label": "Category",
+    "options": "Category",
+    "reqd": 1
+   },
+   {
+    "fieldname": "dependent",
+    "fieldtype": "Link",
+    "label": "Dependent",
+    "options": "Dependent"
+   },
+   {
+    "fieldname": "column_break_prkh",
+    "fieldtype": "Column Break"
+   },
   {
    "fieldname": "period",
    "fieldtype": "Select",

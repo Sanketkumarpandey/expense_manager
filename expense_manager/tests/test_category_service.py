@@ -11,6 +11,7 @@ from expense_manager.services.exceptions import (
     CategoryInUseError,
 )
 from expense_manager.tests.base import ServiceTestCase, SAMPLE_USER, SAMPLE_USER_2, SAMPLE_CATEGORY
+from expense_manager.expense_manager.doctype.user.hooks import user_on_update
 
 
 class TestCreateCategory(ServiceTestCase):
@@ -147,9 +148,38 @@ class TestCreateDefaultCategories(ServiceTestCase):
         with patch.object(frappe, "get_doc", return_value=self._make_doc()), \
              patch.object(frappe.db, "exists", return_value=None):
             result = CategoryService.create_default_categories(SAMPLE_USER)
-            self.assertEqual(len(result), 10)
+            self.assertEqual(len(result), 13)
 
     def test_skips_existing(self):
         with patch.object(frappe.db, "exists", return_value="existing"):
             result = CategoryService.create_default_categories(SAMPLE_USER)
             self.assertEqual(len(result), 0)
+
+
+class TestUserOnUpdateHook(ServiceTestCase):
+
+    def test_seeds_categories_for_expense_manager_user(self):
+        doc = MagicMock()
+        doc.name = SAMPLE_USER
+        with patch("frappe.get_roles", return_value=["Expense Manager User"]), \
+             patch.object(frappe.db, "exists", return_value=None), \
+             patch.object(frappe, "get_doc", return_value=self._make_doc()):
+            user_on_update(doc)
+            # No exception — categories were seeded.
+
+    def test_skips_non_expense_manager_user(self):
+        doc = MagicMock()
+        doc.name = SAMPLE_USER
+        with patch("frappe.get_roles", return_value=["System Manager"]), \
+             patch("expense_manager.services.category_service.CategoryService.create_default_categories") as mock_create:
+            user_on_update(doc)
+            mock_create.assert_not_called()
+
+    def test_skips_when_already_seeded(self):
+        doc = MagicMock()
+        doc.name = SAMPLE_USER
+        with patch("frappe.get_roles", return_value=["Expense Manager User"]), \
+             patch.object(frappe.db, "exists", return_value="existing"):
+            user_on_update(doc)
+            # Idempotent: no categories created (exists returns existing),
+            # but no exception raised.

@@ -25,11 +25,12 @@ def handle_voice(update: dict[str, object]) -> str:
 	try:
 		file_path = download_voice_file(file_id)
 		result = TelegramService.create_expense_from_voice(telegram_user_id, file_path)
+		if not result["success"]:
+			return result["message"]
+		return result["message"]
 	except Exception:
 		frappe.logger("expense_manager").exception("telegram_voice status=error")
 		return "Sorry, I couldn't process that voice note. Please try again or type your expense instead."
 	finally:
 		if file_path and os.path.exists(file_path):
 			os.remove(file_path)
-
-	return result["message"]

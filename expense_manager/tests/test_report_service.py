@@ -106,7 +106,7 @@ class TestGetExpenseSummary(ServiceTestCase):
 
 class TestGetBudgetSummary(ServiceTestCase):
 
-    @patch.object(ReportService, "_category_name_lookup", return_value={"cat-food-001": "Food"})
+    @patch.object(ReportService, "_category_name_lookup", return_value={"cat-food-001": {"category_name": "Food", "icon": ""}})
     @patch("expense_manager.services.report_service.BudgetService.get_budget_usage")
     @patch("expense_manager.services.report_service.BudgetService.list_budgets")
     def test_empty_budgets(self, mock_list, mock_usage, _mock_lookup):
@@ -114,7 +114,7 @@ class TestGetBudgetSummary(ServiceTestCase):
         result = ReportService.get_budget_summary(SAMPLE_USER)
         self.assertEqual(result, [])
 
-    @patch.object(ReportService, "_category_name_lookup", return_value={"cat-food-001": "Food"})
+    @patch.object(ReportService, "_category_name_lookup", return_value={"cat-food-001": {"category_name": "Food", "icon": ""}})
     @patch("expense_manager.services.report_service.BudgetService.get_budget_usage")
     @patch("expense_manager.services.report_service.BudgetService.list_budgets")
     def test_with_usage(self, mock_list, mock_usage, _mock_lookup):
@@ -172,7 +172,7 @@ class TestGetCategoryBreakdown(ServiceTestCase):
         result = ReportService.get_category_breakdown(SAMPLE_USER)
         self.assertEqual(result, [])
 
-    @patch.object(ReportService, "_category_name_lookup", return_value={"Food": "Food"})
+    @patch.object(ReportService, "_category_name_lookup", return_value={"Food": {"category_name": "Food", "icon": ""}})
     @patch.object(ReportService, "_get_expenses")
     def test_groups_and_sorts(self, mock_exp, _mock_lookup):
         mock_exp.return_value = [

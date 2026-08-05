@@ -28,6 +28,9 @@ class Budget(Document):
         if self.notes:
             self.notes = self.notes.strip()
 
+        if hasattr(self, "dependent") and self.dependent:
+            self.dependent = self.dependent.strip()
+
     def validate_required_fields(self):
         if not self.owner_user:
             frappe.throw(_("Owner User is required."))
@@ -67,15 +70,21 @@ class Budget(Document):
             frappe.throw(_("Start Date cannot be after End Date."))
 
     def validate_duplicate_budget(self):
+        filters = {
+            "name": ["!=", self.name],
+            "owner_user": self.owner_user,
+            "category": self.category,
+            "period": self.period,
+            "is_active": 1,
+        }
+        if self.dependent:
+            filters["dependent"] = self.dependent
+        else:
+            filters["dependent"] = ["is", "not set"]
+
         existing_budgets = frappe.get_all(
             "Budget",
-            filters={
-                "name": ["!=", self.name],
-                "owner_user": self.owner_user,
-                "category": self.category,
-                "period": self.period,
-                "is_active": 1,
-            },
+            filters=filters,
             fields=["name", "start_date", "end_date"],
         )
 

@@ -9,7 +9,11 @@ Ownership is enforced at the service layer.
 
 ## 1. Category
 
-Represents an expense category (Food, Medical, Travel, ...).
+Represents an expense category (Food, Medical, Travel, ...). Categories form
+a **single, guardian-owned shared pool** — a category is never scoped to a
+dependent. Dependents are restricted via `Dependent.allowed_categories`
+(see below); an empty allowed list means the dependent may use every
+guardian-owned active category.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -17,6 +21,7 @@ Represents an expense category (Food, Medical, Travel, ...).
 | `owner_user` | Link → User | **(required)** — the Individual who created it |
 | `icon` | Data | optional, emoji or icon key |
 | `is_active` | Check | default 1 |
+| `dependent` | Link → Dependent | **legacy, unused** — kept for backward compatibility only; never read by the services |
 
 **Validation**: `category_name` unique per `owner_user` (case-insensitive,
 whitespace-normalized, title-cased). Cannot delete if referenced by an
@@ -25,6 +30,10 @@ Expense or Budget.
 **Seed data**: Default categories created via
 `CategoryService.create_default_categories()`: Food, Travel, Medical,
 Utilities, Shopping, Entertainment, Uncategorized.
+
+**Authorization**: `CategoryService.get_category(owner_user, ...)` /
+`list_categories(owner_user, ...)` authorize solely on `owner_user`; no
+dependent-scoped lookups exist anymore.
 
 ---
 
@@ -50,7 +59,11 @@ Monthly allocation per Category.
 dates validated for correct order. Threshold 0–100.
 
 **Hooks**: `BudgetService.refresh_budget()` recomputes `spent_amount` from
-Expense records and checks overspend threshold.
+Expense records and checks overspend threshold. Because categories are a
+shared pool, a dependent's expense on a guardian-owned category counts
+toward the guardian-level (family) Budget: when no dependent-scoped Budget
+exists, `refresh_budget()` and `get_budget_usage()` fall back to the
+`dependent = NULL` budget so dependent spend feeds `spent_amount`.
 
 ---
 
@@ -67,11 +80,36 @@ A family member without desk access.
 | `telegram_username` | Data | optional |
 | `telegram_user_id` | Data | optional, for Telegram identity resolution |
 | `allow_carry_forward` | Check | default 1 — whether unused pocket money rolls over |
+| `allowed_categories` | Table → **Dependent Category** | optional allow-list of categories the dependent may use |
 | `is_active` | Check | default 1 |
 
 **Validation**: `dependent_name` unique per `guardian`. Relationship must
 be a valid enum value. Allowance must be numeric and >= 0. Cannot delete
 if referenced by an Expense or Pocket Money Allocation.
+
+**Category scoping**: Categories are a shared, guardian-owned pool.
+`Dependent.allowed_categories` is the allow-list: an **empty table means the
+dependent may use ALL of the guardian's active categories** (the default),
+while non-empty restricts the dependent to exactly those rows.
+`DependentService.list_allowed_categories()` is the single source of truth
+for this "empty = all allowed" fallback; the AI vocabulary loader and the
+Telegram category listing both delegate to it.
+
+---
+
+## 3a. Dependent Category (child DocType)
+
+One row of `Dependent.allowed_categories`. Child table (istable), no own
+permissions.
+
+| Field | Type | Notes |
+|---|---|---|
+| `category` | Link → Category | **(required)** — a guardian-owned category |
+| `is_active` | Check | default 1 — inactive rows are ignored |
+
+Rows are managed via `DependentService.add_allowed_category()` /
+`remove_allowed_category()` (idempotent; accepts a Category doc name or a
+case-insensitive category name).
 
 ---
 
@@ -152,6 +190,7 @@ User (Individual/Guardian) 1───N Category
 User (Individual/Guardian) 1───N Budget            (via Category)
 User (Individual/Guardian) 1───N Dependent
 Dependent                  1───N Pocket Money Allocation
+Dependent                  N───N Category           (via allowed_categories allow-list)
 User                       1───N Expense           (owner_user)
 Dependent                  1───N Expense           (dependent, optional)
 User                       1───1 Telegram Link     (active)

@@ -65,6 +65,11 @@ doctype_js = {"User": "public/js/user.js"}
 # 	"Role": "home_page"
 # }
 
+# Vue SPA served from frontend/ build output (expense_manager/www/expense_manager.html)
+website_route_rules = [
+    {"from_route": "/expense_manager/<path:app_path>", "to_route": "expense_manager"},
+]
+
 # Generators
 # ----------
 
@@ -87,7 +92,8 @@ doctype_js = {"User": "public/js/user.js"}
 # ------------
 
 # before_install = "expense_manager.install.before_install"
-# after_install = "expense_manager.install.after_install"
+after_migrate = "expense_manager.expense_manager.setup.dashboard.after_migrate"
+after_install = "expense_manager.install.after_install"
 
 # Uninstallation
 # ------------
@@ -139,13 +145,14 @@ doctype_js = {"User": "public/js/user.js"}
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+    "Dependent": {
+        "after_insert": "expense_manager.expense_manager.doctype.dependent.hooks.dependent_after_insert",
+    },
+    "User": {
+        "on_update": "expense_manager.expense_manager.doctype.user.hooks.user_on_update",
+    },
+}
 
 # Scheduled Tasks
 # ---------------
@@ -172,6 +179,7 @@ scheduler_events = {
 		"expense_manager.jobs.monthly_rollover.run_monthly_rollover",
         "expense_manager.jobs.budget_alerts.run_budget_alerts",
         "expense_manager.jobs.reminders.run_reminders",
+        "expense_manager.jobs.pending_allocation_reminders.run_pending_allocation_reminders",
 	],
 }
 

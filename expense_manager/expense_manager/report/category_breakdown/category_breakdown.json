@@ -1,0 +1,37 @@
+{
+ "doctype": "Report",
+ "report_type": "Script Report",
+ "ref_doctype": "Expense",
+ "report_name": "Category Breakdown",
+ "name": "Category Breakdown",
+ "module": "Expense Manager",
+ "is_standard": "Yes",
+ "disabled": 0,
+ "prepared_report": 0,
+ "filters": [
+  {
+   "fieldname": "dependent",
+   "label": "Dependent",
+   "fieldtype": "Link",
+   "options": "Dependent",
+   "reqd": 0
+  },
+  {
+   "fieldname": "date_from",
+   "label": "From Date",
+   "fieldtype": "Date",
+   "reqd": 0
+  },
+  {
+   "fieldname": "date_to",
+   "label": "To Date",
+   "fieldtype": "Date",
+   "reqd": 0
+  }
+ ],
+ "roles": [
+  {
+   "role": "System Manager"
+  }
+ ]
+}

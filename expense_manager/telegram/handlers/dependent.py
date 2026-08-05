@@ -42,9 +42,13 @@ def handle_pocketmoney(update: dict[str, object]) -> str:
 
 	if status["data"]["is_dependent"]:
 		allocation = allocations[0]
+		available = allocation.get("available_amount", allocation.get("remaining_amount", 0))
+		allocated = allocation.get("allocated_amount", 0)
+		savings = allocation.get("total_savings", 0)
 		return (
-			f"Pocket money: {allocation.get('total_available_amount')} available "
-			f"(of {allocation.get('allocated_amount')} allocated)."
+			f"Pocket money: ₹{available} available "
+			f"(of ₹{allocated} allocated)\n"
+			f"Total savings: ₹{savings}"
 		)
 
 	dependents_result = TelegramService.list_dependents(telegram_user_id)
@@ -57,8 +61,8 @@ def handle_pocketmoney(update: dict[str, object]) -> str:
 		dependent_id = allocation.get("dependent")
 		display_name = name_lookup.get(dependent_id, dependent_id)
 		lines.append(
-			f"- {display_name}: {allocation.get('total_available_amount')} available "
-			f"(of {allocation.get('allocated_amount')} allocated)"
+			f"- {display_name}: ₹{allocation.get('total_available_amount')} available "
+			f"(of ₹{allocation.get('allocated_amount')} allocated)"
 		)
 	return "\n".join(lines)
 
@@ -77,7 +81,8 @@ def handle_savings(update: dict[str, object]) -> str:
 		return "You don't have a pocket money allocation set up yet."
 
 	balance = balances[0]
-	return f"Your savings (carried forward): {balance.get('carry_forward', 0)}"
+	total_savings = balance.get("total_savings", 0)
+	return f"Your total savings: ₹{total_savings}"
 
 
 def handle_rollover(update: dict[str, object]) -> str:

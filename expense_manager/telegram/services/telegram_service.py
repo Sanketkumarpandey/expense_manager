@@ -7,6 +7,7 @@ from typing import cast, Optional
 import frappe
 import requests
 from frappe import _
+from frappe.utils import flt
 
 from expense_manager.telegram.config import get_telegram_bot_token
 from expense_manager.telegram.utils.constants import (
@@ -32,6 +33,7 @@ from expense_manager.constants.expense import ExpenseSource
 
 from expense_manager.services.ai_service import AIService
 from expense_manager.ai.exceptions import AIError
+from expense_manager.config.exceptions import ConfigurationError
 
 
 def send_message(chat_id: str | int, text: str, parse_mode: str | None = None) -> dict[str, object]:
@@ -130,9 +132,31 @@ class TelegramService:
 			dependent = identity["dependent"]
 
 		try:
+			if identity["is_dependent"]:
+				PocketMoneyService.enforce_available_balance(
+					identity["owner_user"],
+					identity["dependent"],
+					flt(expense_data.get("amount", 0)),
+				)
+
+			category = expense_data.get("category")
+
+			if identity["is_dependent"]:
+				allowed_ids = {
+					row["name"]
+					for row in DependentService.list_allowed_categories(
+						identity["owner_user"], identity["dependent"], active_only=True
+					)
+				}
+				if category not in allowed_ids:
+					return {
+						"success": False,
+						"message": _("That category is not allowed for your account."),
+					}
+
 			expense = ExpenseService.create_expense(
 				owner_user=identity["owner_user"],
-				category=expense_data.get("category"),
+				category=category,
 				amount=expense_data.get("amount"),
 				expense_date=expense_data.get("expense_date"),
 				dependent=dependent,
@@ -142,7 +166,7 @@ class TelegramService:
 				voice_transcript=expense_data.get("voice_transcript"),
 			)
 
-			warning = TelegramService._get_overspend_warning(identity["owner_user"], expense.category)
+			warning = TelegramService._get_overspend_warning(identity["owner_user"], expense.category, dependent=dependent)
 
 			return {
 				"success": True,
@@ -170,7 +194,7 @@ class TelegramService:
 				**updates,
 			)
 
-			warning = TelegramService._get_overspend_warning(identity["owner_user"], expense.category)
+			warning = TelegramService._get_overspend_warning(identity["owner_user"], expense.category, dependent=expense.dependent)
 
 			return {
 				"success": True,
@@ -209,16 +233,134 @@ class TelegramService:
 				dependent=identity["dependent"] if identity["is_dependent"] else None,
 				limit=10,
 			)
-			category_names = {
-				row["name"]: row["category_name"]
-				for row in CategoryService.list_categories(identity["owner_user"], active_only=True)
+			is_dep = identity["is_dependent"]
+			category_map = {
+				row["name"]: row
+				for row in CategoryService.list_categories(
+					identity["owner_user"],
+					active_only=True,
+					dependent=identity["dependent"] if is_dep else None,
+					include_all=not is_dep,
+				)
 			}
 			for expense in data:
-				expense["category_name"] = category_names.get(expense["category"], expense["category"])
+				cat = category_map.get(expense["category"])
+				if cat:
+					expense["category_name"] = cat["category_name"]
+					expense["category_icon"] = (cat.get("icon") or "").strip()
+				else:
+					expense["category_name"] = expense["category"]
+					expense["category_icon"] = ""
 			return {"success": True, "data": data}
 
 		except ExpenseManagerError as exc:
 			return {"success": False, "message": str(exc)}
+
+	@staticmethod
+	def build_expenses_display(telegram_user_id: str) -> str:
+		identity, error = TelegramService._resolve_identity_or_error(telegram_user_id)
+		if error:
+			return error["message"]
+
+		owner_user = identity["owner_user"]
+
+		if identity["is_dependent"]:
+			expenses = ExpenseService.get_recent_expenses(
+				owner_user, dependent=identity["dependent"], limit=10
+			)
+			if not expenses:
+				return "You don't have any recent expenses."
+			category_map = {
+				row["name"]: row
+				for row in DependentService.list_allowed_categories(
+					owner_user, identity["dependent"], active_only=True
+				)
+			}
+			for e in expenses:
+				cat = category_map.get(e["category"])
+				if cat:
+					e["category_name"] = cat["category_name"]
+					e["category_icon"] = (cat.get("icon") or "").strip()
+				else:
+					e["category_name"] = e["category"]
+					e["category_icon"] = ""
+			return TelegramService._format_flat_expenses(expenses)
+
+		deps = DependentService.list_dependents(owner_user, active_only=True)
+		all_cats = {
+			row["name"]: row
+			for row in CategoryService.list_categories(owner_user, active_only=True)
+		}
+
+		groups: list[tuple[str, list[dict]]] = []
+
+		# The guardian's own bucket must exclude dependent-scoped expenses
+		# (dependent not set), otherwise each dependent's spend also shows
+		# up as the guardian's personal spend.
+		own = ExpenseService.get_recent_expenses(owner_user, dependent=["is", "not set"], limit=10)
+		for e in own:
+			cat = all_cats.get(e["category"])
+			if cat:
+				e["category_name"] = cat["category_name"]
+				e["category_icon"] = (cat.get("icon") or "").strip()
+			else:
+				e["category_name"] = e["category"]
+				e["category_icon"] = ""
+		if own:
+			groups.append(("You", own))
+
+		for dep in deps:
+			dep_exp = ExpenseService.get_recent_expenses(owner_user, dependent=dep["name"], limit=10)
+			for e in dep_exp:
+				cat = all_cats.get(e["category"])
+				if cat:
+					e["category_name"] = cat["category_name"]
+					e["category_icon"] = (cat.get("icon") or "").strip()
+				else:
+					e["category_name"] = e["category"]
+					e["category_icon"] = ""
+			if dep_exp:
+				groups.append((dep["dependent_name"], dep_exp))
+
+		if not groups:
+			return "You don't have any recent expenses."
+
+		if len(groups) == 1:
+			return TelegramService._format_flat_expenses(groups[0][1])
+
+		lines = ["Your recent expenses:"]
+		grand_total = 0
+		for person, expenses in groups:
+			total = sum(e["amount"] for e in expenses)
+			grand_total += total
+			lines.append("")
+			lines.append(f"\U0001f464 {person}")
+			for e in expenses:
+				d = e.get("expense_date", "")
+				icon = e.get("category_icon", "")
+				cat = e.get("category_name", "")
+				icon_prefix = f"{icon} " if icon else ""
+				amt = int(e["amount"])
+				lines.append(f"{d} | {icon_prefix}{cat} | \u20b9{amt}")
+			lines.append(f"  Total: \u20b9{int(total)}")
+
+		lines.append("")
+		lines.append(f"Grand total: \u20b9{int(grand_total)}")
+		return "\n".join(lines)
+
+	@staticmethod
+	def _format_flat_expenses(expenses: list[dict]) -> str:
+		total = sum(e["amount"] for e in expenses)
+		lines = ["Your recent expenses:"]
+		for e in expenses:
+			d = e.get("expense_date", "")
+			icon = e.get("category_icon", "")
+			cat = e.get("category_name", "")
+			icon_prefix = f"{icon} " if icon else ""
+			amt = int(e["amount"])
+			lines.append(f"{d} | {icon_prefix}{cat} | \u20b9{amt}")
+		lines.append(f"  Total: \u20b9{int(total)}")
+		return "\n".join(lines)
 
 	@staticmethod
 	def create_expense_from_voice(
@@ -229,30 +371,79 @@ class TelegramService:
 		identity, error = TelegramService._resolve_identity_or_error(telegram_user_id)
 		if error:
 			return error
-		dependent = identity["dependent"] if identity["is_dependent"] else None
 
 		try:
 			expense = AIService.create_expense_from_audio(
 				owner_user=identity["owner_user"],
 				file_path=file_path,
-				dependent=dependent,
+				dependent=identity["dependent"] if identity["is_dependent"] else None,
 				language_hint=language_hint,
 			)
 
-			category_name = CategoryService.get_category(
-				identity["owner_user"], expense.category
-			).category_name
+			exp_dependent = getattr(expense, "dependent", None)
 
-			warning = TelegramService._get_overspend_warning(identity["owner_user"], expense.category)
+			category_doc = CategoryService.get_category(
+				identity["owner_user"], expense.category
+			)
+			category_name = category_doc.category_name
+			category_icon = (category_doc.icon or "").strip()
+
+			warning = TelegramService._get_overspend_warning(identity["owner_user"], expense.category, dependent=exp_dependent)
+
+			icon_prefix = f"{category_icon} " if category_icon else ""
 
 			return {
 				"success": True,
-				"message": _("Logged ₹{0} under {1}.").format(expense.amount, category_name) + warning,
+				"message": _("Logged ₹{0} under {1}{2}.").format(expense.amount, icon_prefix, category_name) + warning,
 				"expense": expense.name,
 			}
 
 		except (ExpenseManagerError, AIError) as exc:
 			return {"success": False, "message": str(exc)}
+		except ConfigurationError:
+			frappe.logger("expense_manager").exception("telegram_service status=config_error")
+			return {"success": False, "message": _("AI expense parsing isn't set up yet. Please contact your administrator.")}
+
+	@staticmethod
+	def create_expense_from_text(
+		telegram_user_id: str,
+		text: str,
+	) -> dict:
+		identity, error = TelegramService._resolve_identity_or_error(telegram_user_id)
+		if error:
+			return error
+
+		try:
+			expense = AIService.create_expense_from_text(
+				owner_user=identity["owner_user"],
+				text=text,
+				dependent=identity["dependent"] if identity["is_dependent"] else None,
+			)
+
+			exp_dependent = getattr(expense, "dependent", None)
+
+			category_doc = CategoryService.get_category(
+				identity["owner_user"], expense.category
+			)
+			category_name = category_doc.category_name
+			category_icon = (category_doc.icon or "").strip()
+
+			warning = TelegramService._get_overspend_warning(identity["owner_user"], expense.category, dependent=exp_dependent)
+
+			icon_prefix = f"{category_icon} " if category_icon else ""
+
+			return {
+				"success": True,
+				"message": _("Logged ₹{0} under {1}{2}.").format(expense.amount, icon_prefix, category_name) + warning,
+				"expense": expense.name,
+			}
+
+		except (ExpenseManagerError, AIError) as exc:
+			return {"success": False, "message": str(exc)}
+		except ConfigurationError:
+			frappe.logger("expense_manager").exception("telegram_service status=config_error")
+			return {"success": False, "message": _("AI expense parsing isn't set up yet. Please contact your administrator.")}
+
 
 	# ------------------------------------------------------------------
 	# Reports
@@ -384,7 +575,17 @@ class TelegramService:
 			return error
 
 		try:
-			data = CategoryService.list_categories(identity["owner_user"], active_only=True)
+			if identity["is_dependent"]:
+				data = DependentService.list_allowed_categories(
+					identity["owner_user"],
+					identity["dependent"],
+					active_only=True,
+				)
+			else:
+				data = CategoryService.list_categories(
+					identity["owner_user"],
+					active_only=True,
+				)
 			return {"success": True, "data": data}
 
 		except ExpenseManagerError as exc:
@@ -430,15 +631,13 @@ class TelegramService:
 
 	@staticmethod
 	def get_help() -> dict:
+		from expense_manager.telegram.router import COMMAND_DESCRIPTIONS
+
+		commands = [cmd for section in COMMAND_DESCRIPTIONS.values() for cmd, _ in section]
 		return {
 			"success": True,
 			"data": {
-				"commands": [
-					"start", "help", "link", "unlink", "profile",
-					"expenses", "categories", "budgets", "balance",
-					"report", "dependents", "pocketmoney", "savings",
-					"rollover", "settings",
-				]
+				"commands": commands
 			},
 		}
 
@@ -516,20 +715,8 @@ class TelegramService:
 			)
 
 	@staticmethod
-	def _get_overspend_warning(owner_user: str, category: str) -> str:
-		try:
-			usage = BudgetService.get_budget_usage(owner_user, category)
-		except ExpenseManagerError:
-			return ""
-
-		if usage is None or not usage["is_overspent"]:
-			return ""
-
-		category_name = CategoryService.get_category(owner_user, category).category_name
-
-		return _(" ⚠️ You're over budget in {0}: ₹{1} spent of ₹{2} allocated.").format(
-			category_name, usage["spent_amount"], usage["allocated_amount"]
-		)
+	def _get_overspend_warning(owner_user: str, category: str, dependent: Optional[str] = None) -> str:
+		return BudgetService.build_inline_overspend_warning(owner_user, category, dependent=dependent)
 
 
 	@staticmethod
@@ -545,10 +732,13 @@ class TelegramService:
 			new_allocation = PocketMoneyService.rollover_allocation(
 				identity["owner_user"], identity["dependent"]
 			)
+			dep_doc = DependentService.get_dependent(identity["owner_user"], identity["dependent"])
+			savings = dep_doc.get("total_savings", 0) or 0
 			return {
 				"success": True,
-				"message": _("Rolled over! New balance: ₹{0}.").format(
-					new_allocation.total_available_amount
+				"message": _("Rolled over! Spendable: ₹{0}. Total savings: ₹{1}.").format(
+					new_allocation.total_available_amount,
+					savings,
 				),
 			}
 		except ExpenseManagerError as exc:

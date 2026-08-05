@@ -1,0 +1,24 @@
+{
+ "doctype": "Report",
+ "report_type": "Script Report",
+ "ref_doctype": "Expense",
+ "report_name": "Monthly Expense Summary",
+ "name": "Monthly Expense Summary",
+ "module": "Expense Manager",
+ "is_standard": "Yes",
+ "disabled": 0,
+ "prepared_report": 0,
+ "filters": [
+  {
+   "fieldname": "year",
+   "label": "Year",
+    "fieldtype": "Int",
+    "reqd": 0
+  }
+ ],
+ "roles": [
+  {
+   "role": "System Manager"
+  }
+ ]
+}

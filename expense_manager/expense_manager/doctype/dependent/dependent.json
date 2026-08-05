@@ -5,26 +5,31 @@
  "creation": "2026-07-23 10:43:09.979648",
  "doctype": "DocType",
  "engine": "InnoDB",
- "field_order": [
-  "dependent_name",
-  "guardian",
-  "column_break_uohi",
-  "relationship",
-  "default_monthly_allowance",
-  "section_break_ajtz",
-  "telegram_username",
-  "allow_carry_forward",
-  "column_break_aeqa",
-  "telegram_user_id",
-  "is_active"
- ],
+   "field_order": [
+   "dependent_name",
+   "guardian",
+   "column_break_uohi",
+   "relationship",
+   "default_monthly_allowance",
+    "section_break_ajtz",
+    "telegram_username",
+    "allow_carry_forward",
+    "column_break_aeqa",
+    "telegram_user_id",
+    "is_active",
+    "section_break_allowed_categories",
+    "allowed_categories",
+    "total_savings",
+    "pending_allocation_since",
+    "last_allocation_reminder_on"
+   ],
  "fields": [
   {
-   "fieldname": "dependent_name",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Dependent Name",
-   "reqd": 1
+    "fieldname": "dependent_name",
+    "fieldtype": "Data",
+    "in_list_view": 1,
+    "label": "Dependent Name",
+    "reqd": 1
   },
   {
    "fieldname": "guardian",
@@ -68,14 +73,43 @@
    "fieldtype": "Data",
    "label": "Telegram User ID"
   },
-  {
-   "default": "1",
-   "fieldname": "is_active",
-   "fieldtype": "Check",
-   "label": "Is Active"
-  },
-  {
-   "fieldname": "default_monthly_allowance",
+   {
+    "default": "1",
+    "fieldname": "is_active",
+    "fieldtype": "Check",
+    "label": "Is Active"
+   },
+   {
+    "fieldname": "section_break_allowed_categories",
+    "fieldtype": "Section Break",
+    "label": "Allowed Categories"
+   },
+   {
+    "description": "Guardian-owned categories this dependent may use. Empty list means the dependent can use all of the guardian's active categories.",
+    "fieldname": "allowed_categories",
+    "fieldtype": "Table",
+    "label": "Allowed Categories",
+    "options": "Dependent Category"
+   },
+   {
+    "default": "0",
+    "fieldname": "total_savings",
+    "fieldtype": "Currency",
+    "label": "Total Savings",
+    "read_only": 1
+   },
+   {
+    "fieldname": "pending_allocation_since",
+    "fieldtype": "Date",
+    "label": "Pending Allocation Since"
+   },
+   {
+    "fieldname": "last_allocation_reminder_on",
+    "fieldtype": "Date",
+    "label": "Last Allocation Reminder Sent On"
+   },
+   {
+    "fieldname": "default_monthly_allowance",
    "fieldtype": "Currency",
    "label": "Default Monthly Allowance",
    "reqd": 1
@@ -84,7 +118,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-07-23 15:10:09.879129",
+ "modified": "2026-07-29 11:21:32.713213",
  "modified_by": "Administrator",
  "module": "Expense Manager",
  "name": "Dependent",

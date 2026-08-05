@@ -4,7 +4,7 @@ from typing import Optional
 
 import frappe
 from frappe import _
-from frappe.utils import flt, getdate, today, get_first_day, add_months
+from frappe.utils import flt, getdate, today, get_first_day, add_months, get_last_day
 
 from expense_manager.services.exceptions import InvalidReportDateRangeError
 from expense_manager.services.category_service import CategoryService
@@ -60,6 +60,7 @@ class ReportService:
             owner_user,
             category=category,
             active_only=True,
+            include_all=True,
         )
 
         category_names = ReportService._category_name_lookup(owner_user)
@@ -67,22 +68,28 @@ class ReportService:
         summary = []
 
         for budget in active_budgets:
-            usage = BudgetService.get_budget_usage(owner_user, budget["category"])
+            usage = BudgetService.get_budget_usage(
+	            owner_user, budget["category"],
+                dependent=budget.get("dependent"),
+	            include_all=True,
+	        )
 
             if usage is None:
                 continue
 
+            cat_info = category_names.get(budget["category"], {})
             summary.append(
                 {
                     "category": budget["category"],
-                    "category_name": category_names.get(budget["category"], budget["category"]),
+                    "category_name": cat_info.get("category_name", budget["category"]),
+                    "category_icon": cat_info.get("icon", ""),
                     "allocated_amount": usage["allocated_amount"],
                     "spent_amount": usage["spent_amount"],
                     "remaining_amount": usage["remaining_amount"],
                     "percentage": usage["pct_used"],
                     "is_overspent": usage["is_overspent"],
-                }
-            )
+				}
+	        )
 
         return sorted(summary, key=lambda row: row["spent_amount"], reverse=True)
 
@@ -108,6 +115,7 @@ class ReportService:
                     "spent_amount": balance["spent_amount"],
                     "carry_forward": balance["carry_forward"],
                     "remaining_amount": balance["remaining_amount"],
+                    "total_savings": balance.get("total_savings", 0),
                 }
             )
 
@@ -131,10 +139,12 @@ class ReportService:
         breakdown = []
 
         for category, row in grouped.items():
+            cat_info = category_names.get(category, {})
             breakdown.append(
                 {
                     "category": category,
-                    "category_name": category_names.get(category, category),
+                    "category_name": cat_info.get("category_name", category),
+                    "category_icon": cat_info.get("icon", ""),
                     "total_amount": row["total_amount"],
                     "expense_count": row["expense_count"],
                     "percentage_of_total": (
@@ -222,6 +232,269 @@ class ReportService:
     @staticmethod
     def get_dashboard_summary(owner_user: str) -> dict:
         return ReportService._build_dashboard(owner_user)
+
+    # ------------------------------------------------------------------
+    # New: Expense Detail Report (with budget info per row)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def get_expense_detail_report(
+        owner_user: str,
+        from_date=None,
+        to_date=None,
+        individual: Optional[str] = None,
+        dependent: Optional[str] = None,
+        category: Optional[str] = None,
+    ) -> list[dict]:
+        ReportService._validate_date_range(from_date, to_date)
+
+        lookup_user = individual or owner_user
+
+        expenses = ExpenseService.list_expenses(
+            lookup_user,
+            dependent=dependent,
+            category=category,
+            date_from=from_date,
+            date_to=to_date,
+        )
+
+        category_names = ReportService._category_name_lookup(lookup_user)
+        budget_data = {}
+        active_budgets = BudgetService.list_budgets(lookup_user, active_only=True)
+        for b in active_budgets:
+            usage = BudgetService.get_budget_usage(lookup_user, b["category"])
+            if usage:
+                budget_data[b["category"]] = usage
+
+        rows = []
+        for exp in expenses:
+            cat = exp["category"]
+            cat_info = category_names.get(cat, {})
+            budget_info = budget_data.get(cat, {})
+            allocated = budget_info.get("allocated_amount", 0)
+            spent = budget_info.get("spent_amount", 0)
+            remaining = budget_info.get("remaining_amount", 0)
+            is_overspent = budget_info.get("is_overspent", False)
+
+            if allocated:
+                status = _("Over Budget") if is_overspent else _("Within Budget")
+            else:
+                status = _("No Budget")
+
+            dependent_name = ""
+            if exp.get("dependent"):
+                dep_name = frappe.db.get_value("Dependent", exp["dependent"], "dependent_name")
+                if dep_name:
+                    dependent_name = dep_name
+
+            rows.append({
+                "expense_date": exp["expense_date"],
+                "description": exp.get("description", ""),
+                "category_name": cat_info.get("category_name", cat),
+                "category_icon": cat_info.get("icon", ""),
+                "individual": exp["owner_user"],
+                "dependent": dependent_name,
+                "amount": flt(exp["amount"]),
+                "budget": flt(allocated),
+                "remaining_budget": flt(remaining),
+                "status": status,
+                "category": cat,
+            })
+
+        return rows
+
+    # ------------------------------------------------------------------
+    # New: Pocket Money Detail Report
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def get_pocket_money_detail_report(
+        owner_user: str,
+        month: Optional[int] = None,
+        year: Optional[int] = None,
+        dependent: Optional[str] = None,
+    ) -> list[dict]:
+        from datetime import date
+        today_date = getdate(today())
+        month = month or today_date.month
+        year = year or today_date.year
+
+        dep_list = DependentService.list_dependents(owner_user, active_only=True)
+        if dependent:
+            dep_list = [d for d in dep_list if d["name"] == dependent]
+
+        period_start = getdate(f"{year}-{month:02d}-01")
+        period_end = get_last_day(period_start)
+
+        rows = []
+        for dep in dep_list:
+            balance = PocketMoneyService.get_balance(owner_user, dep["name"])
+            if balance is None:
+                continue
+
+            period_expenses = ExpenseService.list_expenses(
+                owner_user,
+                dependent=dep["name"],
+                date_from=period_start,
+                date_to=period_end,
+            )
+            total_spent = flt(sum(flt(e["amount"]) for e in period_expenses))
+
+            remaining = flt(balance["remaining_amount"])
+            savings = flt(balance.get("total_savings", 0))
+
+            rows.append({
+                "dependent_name": dep["dependent_name"],
+                "allocated_amount": flt(balance["allocated_amount"]),
+                "total_expenses": total_spent,
+                "remaining_amount": remaining,
+                "savings": savings,
+                "carry_forward": flt(balance["carry_forward"]),
+            })
+
+        return rows
+
+    # ------------------------------------------------------------------
+    # New: Guardian Overview Report
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def get_guardian_overview_data(
+        owner_user: str,
+        month: Optional[int] = None,
+        year: Optional[int] = None,
+    ) -> list[dict]:
+        from datetime import date
+        today_date = getdate(today())
+        month = month or today_date.month
+        year = year or today_date.year
+
+        period_start = getdate(f"{year}-{month:02d}-01")
+        period_end = get_last_day(period_start)
+
+        dep_list = DependentService.list_dependents(owner_user, active_only=True)
+
+        rows = []
+        for dep in dep_list:
+            balance = PocketMoneyService.get_balance(owner_user, dep["name"])
+
+            period_expenses = ExpenseService.list_expenses(
+                owner_user,
+                dependent=dep["name"],
+                date_from=period_start,
+                date_to=period_end,
+            )
+            total_spent = flt(sum(flt(e["amount"]) for e in period_expenses))
+
+            allocation_amount = flt(balance["allocated_amount"]) if balance else 0
+            remaining = flt(balance["remaining_amount"]) if balance else 0
+            savings = flt(balance.get("total_savings", 0)) if balance else 0
+
+            rows.append({
+                "dependent_name": dep["dependent_name"],
+                "allocation": allocation_amount,
+                "expenses": total_spent,
+                "remaining": remaining,
+                "savings": savings,
+            })
+
+        return rows
+
+    # ------------------------------------------------------------------
+    # New: Category Analytics Report
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def get_category_analytics_data(
+        owner_user: str,
+        month: Optional[int] = None,
+        year: Optional[int] = None,
+        individual: Optional[str] = None,
+        category: Optional[str] = None,
+    ) -> list[dict]:
+        from datetime import date
+        today_date = getdate(today())
+        month = month or today_date.month
+        year = year or today_date.year
+
+        period_start = getdate(f"{year}-{month:02d}-01")
+        period_end = get_last_day(period_start)
+
+        target_user = individual or owner_user
+
+        breakdown = ReportService.get_category_breakdown(
+            target_user,
+            date_from=period_start,
+            date_to=period_end,
+        )
+
+        if category:
+            breakdown = [r for r in breakdown if r["category"] == category]
+
+        budget_data = {}
+        active_budgets = BudgetService.list_budgets(target_user, active_only=True)
+        for b in active_budgets:
+            usage = BudgetService.get_budget_usage(target_user, b["category"])
+            if usage:
+                budget_data[b["category"]] = usage
+
+        rows = []
+        for row in breakdown:
+            cat = row["category"]
+            budget_info = budget_data.get(cat, {})
+            budget_amount = flt(budget_info.get("allocated_amount", 0))
+            expenses_amount = flt(row["total_amount"])
+            remaining = max(0, budget_amount - expenses_amount) if budget_amount else 0
+            usage_pct = round((expenses_amount / budget_amount) * 100, 2) if budget_amount else 0
+
+            rows.append({
+                "category_name": row["category_name"],
+                "budget": budget_amount,
+                "expenses": expenses_amount,
+                "remaining": remaining,
+                "usage_pct": usage_pct,
+            })
+
+        return rows
+
+    # ------------------------------------------------------------------
+    # New: Monthly Expense Trend Report
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def get_monthly_expense_trend_data(
+        owner_user: str,
+        year: Optional[int] = None,
+        individual: Optional[str] = None,
+    ) -> dict:
+        year = year or getdate(today()).year
+        target_user = individual or owner_user
+
+        monthly_data = ReportService.get_monthly_report(target_user, year=year)
+
+        amounts = [row["total_amount"] for row in monthly_data]
+        non_zero = [a for a in amounts if a > 0]
+
+        highest = max(amounts) if amounts else 0
+        lowest = min(non_zero) if non_zero else 0
+        average = flt(sum(amounts) / len(amounts)) if amounts else 0
+
+        highest_month = ""
+        lowest_month = ""
+        for row in monthly_data:
+            if row["total_amount"] == highest:
+                highest_month = row["month"]
+            if row["total_amount"] == lowest and row["total_amount"] > 0:
+                lowest_month = row["month"]
+
+        return {
+            "monthly_data": monthly_data,
+            "highest_month": highest_month,
+            "highest_amount": highest,
+            "lowest_month": lowest_month,
+            "lowest_amount": lowest,
+            "average_monthly": average,
+        }
 
     # ------------------------------------------------------------------
     # Notification message builders (called by jobs/reminders.py)
@@ -353,8 +626,18 @@ class ReportService:
 
     @staticmethod
     def _category_name_lookup(owner_user: str) -> dict:
-        categories = CategoryService.list_categories(owner_user)
-        return {row["name"]: row["category_name"] for row in categories}
+        categories = frappe.get_all(
+            "Category",
+            filters={"owner_user": owner_user},
+            fields=["name", "category_name", "icon"],
+        )
+        return {
+            row["name"]: {
+                "category_name": row["category_name"],
+                "icon": row.get("icon", "") or "",
+            }
+            for row in categories
+        }
 
     @staticmethod
     def _validate_date_range(date_from, date_to) -> None:

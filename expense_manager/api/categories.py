@@ -1,7 +1,9 @@
 """Whitelisted Category endpoints. Thin wrappers only — every rule
 lives in CategoryService. All scoped to frappe.session.user, since
-Categories belong to the guardian (desk user); dependents have no
-desk/REST access."""
+Categories belong to the guardian (desk user) and are a shared,
+guardian-owned pool; dependents have no desk/REST access. A dependent's
+effective categories are managed via the dependent's allowed_categories
+child table — see api/dependents.py."""
 
 import frappe
 from frappe.utils import cint

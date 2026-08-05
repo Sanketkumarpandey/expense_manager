@@ -1,18 +1,20 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Any
 
 import frappe
 from frappe import _
 from frappe.model.document import Document
 
 from expense_manager.services.exceptions import (
+    CategoryNotFoundError,
     DependentAlreadyExistsError,
     DependentNotFoundError,
     DependentInUseError,
     InvalidRelationshipError,
     InvalidAllowanceError,
 )
+from expense_manager.services.category_service import CategoryService
 from expense_manager.constants.dependent import Relationship
 from expense_manager.utils.logger import logger
 from expense_manager.utils.helpers import escape_like
@@ -22,6 +24,119 @@ _UNSET = object()
 
 
 class DependentService:
+
+    @staticmethod
+    def list_allowed_categories(
+        guardian: str,
+        dependent: str,
+        active_only: bool = True,
+    ) -> list[dict]:
+        """List the categories a dependent is allowed to use.
+
+        Categories are a shared, guardian-owned pool. An empty
+        ``allowed_categories`` child table means the dependent may use ALL of
+        the guardian's active categories (the default until the guardian
+        explicitly customizes the list). This method is the single source of
+        truth for the "empty table = all allowed" fallback; other callers
+        (AI vocabulary loading, Telegram category listing) delegate here.
+        """
+        doc = DependentService._get_dependent(guardian, dependent)
+
+        all_cats = CategoryService.list_categories(guardian, active_only=active_only)
+        by_id = {row["name"]: row for row in all_cats}
+
+        allowed_rows = [
+            row
+            for row in (doc.get("allowed_categories") or [])
+            if (not active_only or row.get("is_active"))
+        ]
+
+        if not allowed_rows:
+            return all_cats
+
+        return [by_id[row.get("category")] for row in allowed_rows if row.get("category") in by_id]
+
+    @staticmethod
+    def add_allowed_category(
+        guardian: str,
+        dependent: str,
+        category: str,
+    ) -> Document:
+        """Explicitly allow a guardian-owned category for a dependent.
+
+        ``category`` may be a Category doc name or a category name. Idempotent:
+        adding a category that is already in the allowed list is a no-op.
+        """
+        doc = DependentService._get_dependent(guardian, dependent)
+        category_id = DependentService._resolve_category_id(guardian, category)
+
+        existing = [row for row in (doc.get("allowed_categories") or []) if row.get("category") == category_id]
+        if existing:
+            return doc
+
+        doc.append("allowed_categories", {"category": category_id, "is_active": 1})
+        doc.save(ignore_permissions=True)
+
+        logger.info(
+            "Dependent allowed category added | guardian=%s | dependent=%s | category=%s",
+            guardian,
+            dependent,
+            category_id,
+        )
+
+        return doc
+
+    @staticmethod
+    def remove_allowed_category(
+        guardian: str,
+        dependent: str,
+        category: str,
+    ) -> Document:
+        """Revoke an allowed category from a dependent's list."""
+        doc = DependentService._get_dependent(guardian, dependent)
+        category_id = DependentService._resolve_category_id(guardian, category)
+
+        for row in list(doc.get("allowed_categories") or []):
+            if row.get("category") == category_id:
+                doc.remove(row)
+
+        doc.save(ignore_permissions=True)
+
+        logger.info(
+            "Dependent allowed category removed | guardian=%s | dependent=%s | category=%s",
+            guardian,
+            dependent,
+            category_id,
+        )
+
+        return doc
+
+    @staticmethod
+    def _resolve_category_id(guardian: str, category: Any) -> str:
+        """Resolve a category supplied by a client to its doc name.
+
+        Accepts either an existing Category doc name (ownership still
+        validated) or a case-insensitive match against the guardian's
+        category names. Handles string, dict, or object inputs safely.
+        """
+        if isinstance(category, dict):
+            category = category.get("name") or category.get("category") or category.get("category_name") or ""
+        if not isinstance(category, str):
+            category = str(category) if category is not None else ""
+        category_str = category.strip()
+        if not category_str:
+            raise CategoryNotFoundError(_("Category is required."))
+
+        if frappe.db.exists("Category", category_str):
+            return CategoryService.get_category(guardian, category_str).name
+
+        for cat in CategoryService.list_categories(guardian):
+            if cat["category_name"].lower() == category_str.lower():
+                return cat["name"]
+
+        raise CategoryNotFoundError(
+            _("Category '{0}' not found. Please use an existing category name.").format(category_str)
+        )
 
     @staticmethod
     def create_dependent(

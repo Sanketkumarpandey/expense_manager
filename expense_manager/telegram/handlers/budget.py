@@ -19,8 +19,10 @@ def handle_budgets(update: dict[str, object]) -> str:
 
 	lines = ["Your budgets:"]
 	for budget in budgets:
+		icon = budget.get("category_icon", "") or ""
+		prefix = f"{icon} " if icon else ""
 		lines.append(
-			f"- {budget['category_name']}: {budget['spent_amount']} / {budget['allocated_amount']} "
+			f"- {prefix}{budget['category_name']}: {budget['spent_amount']} / {budget['allocated_amount']} "
 			f"({budget['percentage']}%{' — over budget' if budget['is_overspent'] else ''})"
 		)
 	return "\n".join(lines)
@@ -44,7 +46,9 @@ def handle_balance(update: dict[str, object]) -> str:
 			return "You don't have a pocket money allocation set up yet."
 
 		balance = balances[0]
-		return f"Your pocket money balance: {balance.get('remaining_amount', balance)}"
+		remaining = balance.get("remaining_amount", 0)
+		savings = balance.get("total_savings", 0)
+		return f"Spendable: ₹{remaining} | Savings: ₹{savings}"
 
 	result = TelegramService.get_budget(telegram_user_id)
 	if not result["success"]:
@@ -56,5 +60,7 @@ def handle_balance(update: dict[str, object]) -> str:
 
 	lines = ["Your budget balances:"]
 	for budget in budgets:
-		lines.append(f"- {budget.get('category_name', budget.get('category'))}: remaining {budget.get('remaining_amount', '')}")
+		icon = budget.get("category_icon", "") or ""
+		prefix = f"{icon} " if icon else ""
+		lines.append(f"- {prefix}{budget['category_name']}: remaining {budget.get('remaining_amount', '')}")
 	return "\n".join(lines)

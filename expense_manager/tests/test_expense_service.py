@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 import frappe
+from frappe.utils import getdate
 from expense_manager.constants.expense import ExpenseSource
 from expense_manager.services.exceptions import (
+    CategoryNotAllowedError,
     ExpenseNotFoundError,
     InvalidExpenseAmountError,
     InvalidExpenseDateError,
@@ -34,9 +36,13 @@ Svc = ExpenseService
 
 def _mock_category_service():
     """Return a patch context manager for CategoryService.get_category."""
+    category_doc = MagicMock()
+    category_doc.name = SAMPLE_CATEGORY["name"]
+    category_doc.category_name = SAMPLE_CATEGORY["category_name"]
+    category_doc.owner_user = SAMPLE_CATEGORY["owner_user"]
     return patch(
         "expense_manager.services.expense_service.CategoryService.get_category",
-        return_value=SAMPLE_CATEGORY,
+        return_value=category_doc,
     )
 
 
@@ -45,6 +51,18 @@ def _mock_dependent_service():
     return patch(
         "expense_manager.services.expense_service.DependentService.get_dependent",
         return_value=SAMPLE_DEPENDENT,
+    )
+
+
+def _mock_dependent_allowed():
+    """Return a patch context manager for DependentService.list_allowed_categories.
+
+    Defaults to allowing the sample category, matching the "empty allowed
+    list means everything is allowed" fallback.
+    """
+    return patch(
+        "expense_manager.services.expense_service.DependentService.list_allowed_categories",
+        return_value=[SAMPLE_CATEGORY],
     )
 
 
@@ -63,7 +81,7 @@ def _mock_pocket_money_refresh():
 
 
 def _patch_all():
-    """Return a combined context manager that patches all four service dependencies."""
+    """Return a combined context manager that patches all five service dependencies."""
     from contextlib import ExitStack
 
     class _Combined:
@@ -79,6 +97,7 @@ def _patch_all():
         def __enter__(self):
             self.category = self._stack.enter_context(_mock_category_service())
             self.dependent = self._stack.enter_context(_mock_dependent_service())
+            self.allowed = self._stack.enter_context(_mock_dependent_allowed())
             self.budget = self._stack.enter_context(_mock_budget_refresh())
             self.pocket_money = self._stack.enter_context(_mock_pocket_money_refresh())
             return self
@@ -91,17 +110,17 @@ def _patch_all():
 
 def _future_date() -> str:
     """Return a date string that is one day in the future."""
-    return (date.today() + timedelta(days=1)).isoformat()
+    return (getdate(frappe.utils.today()) + timedelta(days=1)).isoformat()
 
 
 def _past_date() -> str:
     """Return a date string that is one day in the past."""
-    return (date.today() - timedelta(days=1)).isoformat()
+    return (getdate(frappe.utils.today()) - timedelta(days=1)).isoformat()
 
 
 def _today_str() -> str:
     """Return today's date as an ISO string."""
-    return date.today().isoformat()
+    return frappe.utils.today()
 
 
 # ------------------------------------------------------------------
@@ -194,7 +213,7 @@ class TestCreateExpense(ServiceTestCase):
                     expense_date=_past_date(),
                 )
 
-        mocks.budget.assert_called_once_with(SAMPLE_USER, SAMPLE_CATEGORY["name"])
+        mocks.budget.assert_called_once_with(SAMPLE_USER, SAMPLE_CATEGORY["name"], dependent=None)
 
     def test_create_expense_refreshes_pocket_money(self) -> None:
         """PocketMoneyService.refresh_balance is called after successful creation."""
@@ -214,6 +233,63 @@ class TestCreateExpense(ServiceTestCase):
         mocks.pocket_money.assert_called_once_with(
             SAMPLE_USER, SAMPLE_DEPENDENT["name"]
         )
+
+    def test_create_expense_allows_allowed_category_for_dependent(self) -> None:
+        """A dependent expense in an allowed category is accepted."""
+        created_doc = MagicMock()
+        created_doc.name = "exp-allow-001"
+
+        with _patch_all() as mocks:
+            with patch.object(Svc, "_create_doc", return_value=created_doc):
+                Svc.create_expense(
+                    owner_user=SAMPLE_USER,
+                    category=SAMPLE_CATEGORY["name"],
+                    amount=100.0,
+                    expense_date=_past_date(),
+                    dependent=SAMPLE_DEPENDENT["name"],
+                )
+
+        mocks.allowed.assert_called_once_with(
+            SAMPLE_USER, SAMPLE_DEPENDENT["name"], active_only=True
+        )
+
+    def test_create_expense_rejects_disallowed_category_for_dependent(self) -> None:
+        """A dependent expense in a category outside the allowed list is blocked."""
+        other_category = {
+            "name": "cat-other-001",
+            "category_name": "Other",
+            "icon": "📦",
+            "owner_user": SAMPLE_USER,
+            "is_active": 1,
+        }
+
+        with _patch_all() as mocks:
+            mocks.allowed.return_value = [other_category]
+            with self.assertRaises(CategoryNotAllowedError) as ctx:
+                Svc.create_expense(
+                    owner_user=SAMPLE_USER,
+                    category=SAMPLE_CATEGORY["name"],
+                    amount=100.0,
+                    expense_date=_past_date(),
+                    dependent=SAMPLE_DEPENDENT["name"],
+                )
+            self.assertIn("not allowed", str(ctx.exception))
+
+    def test_create_expense_allowed_check_skipped_without_dependent(self) -> None:
+        """Guardian expenses with no dependent are never run through the list."""
+        created_doc = MagicMock()
+        created_doc.name = "exp-nodp-002"
+
+        with _patch_all() as mocks:
+            with patch.object(Svc, "_create_doc", return_value=created_doc):
+                Svc.create_expense(
+                    owner_user=SAMPLE_USER,
+                    category=SAMPLE_CATEGORY["name"],
+                    amount=100.0,
+                    expense_date=_past_date(),
+                )
+
+        mocks.allowed.assert_not_called()
 
     def test_create_expense_propagates_invalid_category(self) -> None:
         """Invalid category raises the error from CategoryService."""
@@ -469,8 +545,8 @@ class TestUpdateExpense(ServiceTestCase):
 
         self.assertEqual(doc.category, "cat-new")
         doc.save.assert_called_once()
-        mocks.budget.assert_any_call(SAMPLE_USER, "cat-old")
-        mocks.budget.assert_any_call(SAMPLE_USER, "cat-new")
+        mocks.budget.assert_any_call(SAMPLE_USER, "cat-old", dependent=None)
+        mocks.budget.assert_any_call(SAMPLE_USER, "cat-new", dependent=None)
 
     def test_update_category_none_does_not_change(self) -> None:
         """Passing category=None does not modify the existing category."""
@@ -504,7 +580,7 @@ class TestUpdateExpense(ServiceTestCase):
 
         with _patch_all():
             with self._patch_get_expense(doc):
-                new_date = (date.today() - timedelta(days=5)).isoformat()
+                new_date = (getdate(frappe.utils.today()) - timedelta(days=5)).isoformat()
                 Svc.update_expense(
                     SAMPLE_USER, SAMPLE_EXPENSE["name"], expense_date=new_date
                 )
@@ -617,7 +693,7 @@ class TestUpdateExpense(ServiceTestCase):
                     SAMPLE_USER, SAMPLE_EXPENSE["name"], amount=999.0
                 )
 
-        mocks.budget.assert_called_once_with(SAMPLE_USER, "cat-same")
+        mocks.budget.assert_called_once_with(SAMPLE_USER, "cat-same", dependent=None)
 
     def test_update_refreshes_both_budgets_on_category_change(self) -> None:
         """Both old and new category budgets are refreshed when category changes."""
@@ -632,7 +708,9 @@ class TestUpdateExpense(ServiceTestCase):
         calls = [c for c in mocks.budget.call_args_list]
         self.assertEqual(len(calls), 2)
         self.assertEqual(calls[0].args, (SAMPLE_USER, "cat-old"))
+        self.assertEqual(calls[0].kwargs, {"dependent": None})
         self.assertEqual(calls[1].args, (SAMPLE_USER, "cat-new"))
+        self.assertEqual(calls[1].kwargs, {"dependent": None})
 
     def test_update_refreshes_pocket_money_on_dependent_change(self) -> None:
         """Both old and new dependent pocket money are refreshed on change."""
@@ -662,6 +740,52 @@ class TestUpdateExpense(ServiceTestCase):
                 )
 
         mocks.pocket_money.assert_called_once_with(SAMPLE_USER, "dep-same")
+
+    def test_update_rejects_disallowed_category_for_dependent(self) -> None:
+        """Updating a dependent expense to a disallowed category is blocked."""
+        other_category = {
+            "name": "cat-other-001",
+            "category_name": "Other",
+            "icon": "📦",
+            "owner_user": SAMPLE_USER,
+            "is_active": 1,
+        }
+        doc = self._make_doc(dependent=SAMPLE_DEPENDENT["name"])
+
+        with _patch_all() as mocks:
+            mocks.allowed.return_value = [other_category]
+            with self._patch_get_expense(doc):
+                with self.assertRaises(CategoryNotAllowedError):
+                    Svc.update_expense(
+                        SAMPLE_USER,
+                        SAMPLE_EXPENSE["name"],
+                        category="cat-new",
+                    )
+
+    def test_update_rejects_allowed_category_for_disallowed_dependent(self) -> None:
+        """Reassigning an expense to a dependent whose allowed list excludes
+        the expense's existing category is blocked."""
+        other_category = {
+            "name": "cat-other-001",
+            "category_name": "Other",
+            "icon": "📦",
+            "owner_user": SAMPLE_USER,
+            "is_active": 1,
+        }
+        doc = self._make_doc(
+            dependent=SAMPLE_DEPENDENT["name"],
+            category=SAMPLE_CATEGORY["name"],
+        )
+
+        with _patch_all() as mocks:
+            mocks.allowed.return_value = [other_category]
+            with self._patch_get_expense(doc):
+                with self.assertRaises(CategoryNotAllowedError):
+                    Svc.update_expense(
+                        SAMPLE_USER,
+                        SAMPLE_EXPENSE["name"],
+                        dependent="dep-son-002",
+                    )
 
     def test_update_expense_not_found(self) -> None:
         """Update of non-existent expense raises ExpenseNotFoundError."""
@@ -741,7 +865,7 @@ class TestDeleteExpense(ServiceTestCase):
             with patch.object(Svc, "_get_expense", return_value=doc):
                 Svc.delete_expense(SAMPLE_USER, SAMPLE_EXPENSE["name"])
 
-        mocks.budget.assert_called_once_with(SAMPLE_USER, "cat-food-001")
+        mocks.budget.assert_called_once_with(SAMPLE_USER, "cat-food-001", dependent=None)
 
     def test_delete_refreshes_pocket_money(self) -> None:
         """PocketMoneyService.refresh_balance is called after deletion."""
@@ -780,7 +904,7 @@ class TestDeleteExpense(ServiceTestCase):
             with patch.object(Svc, "_get_expense", return_value=doc):
                 Svc.delete_expense(SAMPLE_USER_2, SAMPLE_EXPENSE["name"])
 
-        mocks.budget.assert_called_once_with(SAMPLE_USER_2, SAMPLE_CATEGORY["name"])
+        mocks.budget.assert_called_once_with(SAMPLE_USER_2, SAMPLE_CATEGORY["name"], dependent=None)
         mocks.pocket_money.assert_called_once_with(SAMPLE_USER_2, doc.dependent)
 
 
@@ -1076,11 +1200,20 @@ class TestValidation(ServiceTestCase):
             Svc._validate_source("Email")
 
     def test_validate_category_delegates_to_category_service(self) -> None:
-        """_validate_category calls CategoryService.get_category."""
+        """_validate_category calls CategoryService.get_category without dependent."""
         with patch(
             "expense_manager.services.expense_service.CategoryService.get_category"
         ) as mock_cat:
             Svc._validate_category(SAMPLE_USER, "cat-food-001")
+
+        mock_cat.assert_called_once_with(SAMPLE_USER, "cat-food-001")
+
+    def test_validate_category_ignores_dependent_argument(self) -> None:
+        """_validate_category authorizes on the shared pool; dependent is not passed to CategoryService."""
+        with patch(
+            "expense_manager.services.expense_service.CategoryService.get_category"
+        ) as mock_cat:
+            Svc._validate_category(SAMPLE_USER, "cat-food-001", dependent="dep-son-001")
 
         mock_cat.assert_called_once_with(SAMPLE_USER, "cat-food-001")
 

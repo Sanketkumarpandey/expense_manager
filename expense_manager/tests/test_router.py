@@ -36,6 +36,18 @@ class TestTelegramRouter(TestCase):
 		self.assertIsNotNone(router.route_update(updates["link"]))
 		self.assertIsNotNone(router.route_update(updates["unlink"]))
 
+	def test_addexpense_command_is_registered(self) -> None:
+		"""/addexpense command is registered and routes to handle_addexpense."""
+		self.assertIn("addexpense", router.COMMAND_HANDLERS)
+		response = router.route_update({"message": {"text": "/addexpense lunch 250"}})
+		self.assertIsNotNone(response)
+
+	def test_free_text_routes_to_handler(self) -> None:
+		"""Free text (no leading /) routes to the text expense handler, not unknown."""
+		response = router.route_update({"message": {"text": "lunch 250"}})
+		self.assertIsNotNone(response)
+		self.assertNotIn("don't recognise", response)
+
 	def test_unknown_command_uses_friendly_fallback(self) -> None:
 		"""Route unsupported commands to the unknown-command handler."""
 		response = router.route_update({"message": {"text": "/unsupported"}})

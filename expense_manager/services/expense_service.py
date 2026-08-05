@@ -8,6 +8,7 @@ from frappe import _
 from frappe.model.document import Document
 
 from expense_manager.services.exceptions import (
+    CategoryNotAllowedError,
     ExpenseNotFoundError,
     InvalidExpenseAmountError,
     InvalidExpenseDateError,
@@ -24,6 +25,9 @@ from expense_manager.utils.logger import logger
 _UNSET = object()
 
 
+from frappe.utils import flt
+
+
 class ExpenseService:
 
     @staticmethod
@@ -38,8 +42,9 @@ class ExpenseService:
         payment_method: Optional[str] = None,
         voice_transcript: Optional[str] = None,
     ) -> Document:
-        ExpenseService._validate_category(owner_user, category)
+        ExpenseService._validate_category(owner_user, category, dependent=dependent)
         ExpenseService._validate_dependent(owner_user, dependent)
+        ExpenseService._validate_dependent_category(owner_user, category, dependent)
         amount = ExpenseService._validate_amount(amount)
         ExpenseService._validate_expense_date(expense_date)
         ExpenseService._validate_source(source)
@@ -58,7 +63,7 @@ class ExpenseService:
             }
         )
 
-        BudgetService.refresh_budget(owner_user, category)
+        BudgetService.refresh_budget(owner_user, category, dependent=dependent)
         PocketMoneyService.refresh_balance(owner_user, dependent)
 
         logger.info(
@@ -96,13 +101,18 @@ class ExpenseService:
         old_dependent = doc.dependent
 
         if category is not None:
-            ExpenseService._validate_category(owner_user, category)
+            ExpenseService._validate_category(owner_user, category, dependent=doc.dependent)
             doc.category = category
 
         if dependent is not _UNSET:
             if dependent is not None:
                 ExpenseService._validate_dependent(owner_user, dependent)
             doc.dependent = dependent
+
+        if (category is not None or dependent is not _UNSET) and doc.dependent is not None:
+            ExpenseService._validate_dependent_category(
+                owner_user, doc.category, doc.dependent
+            )
 
         if amount is not None:
             doc.amount = ExpenseService._validate_amount(amount)
@@ -119,9 +129,9 @@ class ExpenseService:
 
         doc.save(ignore_permissions=True)
 
-        BudgetService.refresh_budget(owner_user, old_category)
+        BudgetService.refresh_budget(owner_user, old_category, dependent=old_dependent)
         if old_category != doc.category:
-            BudgetService.refresh_budget(owner_user, doc.category)
+            BudgetService.refresh_budget(owner_user, doc.category, dependent=doc.dependent)
 
         PocketMoneyService.refresh_balance(owner_user, old_dependent)
         if old_dependent != doc.dependent:
@@ -149,7 +159,7 @@ class ExpenseService:
 
         doc.delete(ignore_permissions=True)
 
-        BudgetService.refresh_budget(owner, category)
+        BudgetService.refresh_budget(owner, category, dependent=dependent)
         PocketMoneyService.refresh_balance(owner, dependent)
 
         logger.info(
@@ -161,7 +171,7 @@ class ExpenseService:
     @staticmethod
     def list_expenses(
         owner_user: str,
-        dependent: Optional[str] = None,
+        dependent: Optional[str | list] = None,
         category: Optional[str] = None,
         date_from: Optional[str | date] = None,
         date_to: Optional[str | date] = None,
@@ -206,7 +216,7 @@ class ExpenseService:
     @staticmethod
     def get_recent_expenses(
         owner_user: str,
-        dependent: Optional[str] = None,
+        dependent: Optional[str | list] = None,
         limit: int = 10,
     ) -> list[dict]:
         return ExpenseService.list_expenses(
@@ -277,7 +287,12 @@ class ExpenseService:
     def _validate_category(
         owner_user: str,
         category: str,
+        dependent: Optional[str] = None,
     ) -> None:
+        # Categories are a shared, guardian-owned pool. The dependent
+        # argument is kept for signature symmetry; the per-dependent
+        # allowed-categories check lives in _validate_dependent_category
+        # below.
         CategoryService.get_category(owner_user, category)
 
     @staticmethod
@@ -287,6 +302,36 @@ class ExpenseService:
     ) -> None:
         if dependent is not None:
             DependentService.get_dependent(owner_user, dependent)
+
+    @staticmethod
+    def _validate_dependent_category(
+        owner_user: str,
+        category: str,
+        dependent: Optional[str],
+    ) -> None:
+        """Enforce the dependent's allowed-categories list.
+
+        Mirrors the Telegram bot's check so the REST path cannot bypass it:
+        a dependent expense may only use a category the guardian has
+        explicitly allowed. An empty allowed list means "all active
+        guardian categories" — handled by DependentService.list_allowed_categories.
+        """
+        if dependent is None:
+            return
+
+        category_id = CategoryService.get_category(owner_user, category).name
+
+        allowed_ids = {
+            row["name"]
+            for row in DependentService.list_allowed_categories(
+                owner_user, dependent, active_only=True
+            )
+        }
+
+        if category_id not in allowed_ids:
+            raise CategoryNotAllowedError(
+                _("This category is not allowed for this dependent.")
+            )
 
     @staticmethod
     def _validate_amount(amount: float) -> float:
@@ -307,7 +352,7 @@ class ExpenseService:
                 _("Expense amount must be greater than zero.")
             )
 
-        return amount
+        return round(flt(amount), 2)
 
     @staticmethod
     def _validate_expense_date(expense_date: str | date) -> None:

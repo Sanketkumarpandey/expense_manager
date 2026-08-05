@@ -26,6 +26,11 @@ class CategoryInactiveError(CategoryError):
     """Raised when an inactive category is used."""
 
 
+class CategoryNotAllowedError(CategoryError):
+    """Raised when an expense is created for a dependent in a category the
+    dependent's allowed-categories list does not permit."""
+
+
 class BudgetError(ExpenseManagerError):
     """Base exception for budget-related errors."""
 

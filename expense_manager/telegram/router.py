@@ -12,7 +12,12 @@ from expense_manager.telegram.handlers.dependent import (
 	handle_rollover,
 	handle_savings,
 )
-from expense_manager.telegram.handlers.expense import handle_categories, handle_expenses
+from expense_manager.telegram.handlers.expense import (
+	handle_categories,
+	handle_expenses,
+	handle_addexpense,
+	handle_free_text,
+)
 from expense_manager.telegram.handlers.help import handle_help
 from expense_manager.telegram.handlers.link import handle_link
 from expense_manager.telegram.handlers.report import handle_report
@@ -24,6 +29,32 @@ from expense_manager.telegram.handlers.voice import handle_voice
 
 Handler = Callable[[dict[str, object]], str]
 
+COMMAND_DESCRIPTIONS: Mapping[str, list[tuple[str, str]]] = {
+	"Account": [
+		("start", "welcome message"),
+		("help", "show this help"),
+		("link", "<code> — link your account"),
+		("unlink", "unlink your account"),
+		("profile", "view your profile"),
+		("settings", "account settings"),
+	],
+	"Expenses & Budgets": [
+		("addexpense", "<text> — log an expense by text"),
+		("expenses", "view recent expenses"),
+		("categories", "view your categories"),
+		("budgets", "view your budgets"),
+		("balance", "check your balance"),
+		("report", "spending report chart"),
+	],
+	"Dependents": [
+		("dependents", "manage dependents"),
+		("pocketmoney", "pocket money allocations"),
+		("savings", "view your savings"),
+		("rollover", "roll over pocket money"),
+	],
+}
+
+
 COMMAND_HANDLERS: Mapping[str, Handler] = {
 	"start": handle_start,
 	"help": handle_help,
@@ -32,6 +63,7 @@ COMMAND_HANDLERS: Mapping[str, Handler] = {
 	"profile": handle_profile,
 	"settings": handle_settings,
 	"expenses": handle_expenses,
+	"addexpense": handle_addexpense,
 	"categories": handle_categories,
 	"budgets": handle_budgets,
 	"balance": handle_balance,
@@ -72,7 +104,10 @@ def route_update(update: dict[str, object]) -> str | None:
 			return None
 
 		command = _extract_command(text)
-		handler = COMMAND_HANDLERS.get(command, handle_unknown)
+		if not command:
+			handler = handle_free_text
+		else:
+			handler = COMMAND_HANDLERS.get(command, handle_unknown)
 		handler_name = getattr(handler, "__name__", "unknown_handler")
 
 		frappe.logger("expense_manager").info(

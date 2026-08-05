@@ -1,0 +1,32 @@
+{
+ "doctype": "Report",
+ "report_type": "Script Report",
+ "ref_doctype": "Expense",
+ "report_name": "Monthly Expense Trend",
+ "name": "Monthly Expense Trend",
+ "module": "Expense Manager",
+ "is_standard": "Yes",
+ "disabled": 0,
+ "prepared_report": 0,
+ "filters": [
+  {
+   "fieldname": "year",
+   "label": "Year",
+   "fieldtype": "Int",
+   "default": 0,
+   "reqd": 0
+  },
+  {
+   "fieldname": "individual",
+   "label": "Individual",
+   "fieldtype": "Link",
+   "options": "User",
+   "reqd": 0
+  }
+ ],
+ "roles": [
+  {
+   "role": "System Manager"
+  }
+ ]
+}
