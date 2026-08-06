@@ -73,6 +73,7 @@ class TelegramLink(Document):
             "Telegram Link",
             {
                 "user": self.user,
+                "is_active": 1,
                 "name": ["!=", self.name],
             },
         )
@@ -87,6 +88,7 @@ class TelegramLink(Document):
             "Telegram Link",
             {
                 "telegram_user_id": self.telegram_user_id,
+                "is_active": 1,
                 "name": ["!=", self.name],
             },
         )

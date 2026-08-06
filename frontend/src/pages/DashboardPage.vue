@@ -14,6 +14,16 @@
     </template>
 
     <div class="space-y-6">
+      <div v-if="overspent.length" class="space-y-3">
+        <OverspendBanner
+          v-for="row in overspent"
+          :key="row.category"
+          :overspend="row"
+          class="max-w-3xl"
+          @dismiss="dismissed.push(row.category)"
+        />
+      </div>
+
       <div class="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <div
           v-for="card in cards"
@@ -43,8 +53,7 @@
         <div class="mt-4">
           <div class="h-2 w-full overflow-hidden rounded-full bg-surface-gray-2">
             <div
-              class="h-full rounded-full transition-all"
-              :class="usagePct > 100 ? 'bg-surface-red-2' : 'bg-surface-blue-2'"
+              class="h-full rounded-full bg-surface-blue-3 transition-all"
               :style="{ width: usagePct + '%' }"
             />
           </div>
@@ -57,14 +66,57 @@
           </div>
         </div>
       </div>
+
+      <div class="rounded-lg border border-outline-gray-1 bg-surface-white">
+        <div class="flex items-center justify-between border-b border-outline-gray-1 px-5 py-4">
+          <div>
+            <h2 class="text-sm font-medium text-ink-gray-9">Recent expenses</h2>
+            <p class="text-xs text-ink-gray-5">Latest activity across all categories</p>
+          </div>
+          <router-link
+            :to="{ name: 'expenses' }"
+            class="text-sm font-medium text-ink-blue-3 hover:text-ink-blue-4"
+          >
+            View all
+          </router-link>
+        </div>
+        <div v-if="recent.length" class="divide-y divide-outline-gray-1">
+          <div
+            v-for="expense in recent"
+            :key="expense.name"
+            class="flex items-center gap-3 px-5 py-3"
+          >
+            <span
+              class="grid size-8 shrink-0 place-items-center rounded-lg bg-surface-gray-2 text-ink-gray-7"
+            >
+              <span class="size-4">{{ expense.category_icon }}</span>
+            </span>
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm text-ink-gray-9">
+                {{ expense.description || expense.category_name || 'Expense' }}
+              </p>
+              <p class="text-xs text-ink-gray-5">
+                {{ expense.category_name || expense.category }}
+                <span v-if="expense.dependent_name"> · {{ expense.dependent_name }}</span>
+                · {{ formatDate(expense.expense_date) }}
+              </p>
+            </div>
+            <p class="text-sm font-medium text-ink-gray-9">{{ inr(expense.amount) }}</p>
+          </div>
+        </div>
+        <p v-else class="px-5 py-8 text-center text-sm text-ink-gray-5">
+          No expenses yet. Add one from the Expenses page.
+        </p>
+      </div>
     </div>
   </ResourceState>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { createResource } from 'frappe-ui'
 import ResourceState from '@/components/ResourceState.vue'
+import OverspendBanner from '@/components/OverspendBanner.vue'
 
 const resource = createResource({
   url: 'expense_manager.api.reports.get_dashboard_summary',
@@ -72,11 +124,17 @@ const resource = createResource({
   auto: true,
 })
 
+const dismissed = ref([])
+
 const data = computed(() => resource.data || {})
 const totalExpense = computed(() => data.value.total_expense ?? 0)
 const monthlyExpense = computed(() => data.value.monthly_expense ?? 0)
 const remainingBudget = computed(() => data.value.remaining_budget ?? 0)
 const monthlySpent = computed(() => monthlyExpense.value)
+const recent = computed(() => data.value.recent_expenses || [])
+const overspent = computed(() =>
+  (data.value.overspent || []).filter((row) => !dismissed.value.includes(row.category)),
+)
 const usagePct = computed(() => {
   const budget = monthlySpent.value + remainingBudget.value
   if (!budget) return 0
@@ -87,9 +145,17 @@ const inr = (value) =>
   new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
-    minimumFractionDigits: 2,
+    minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(value || 0)
+
+function formatDate(value) {
+  if (!value) return ''
+  return new Date(value).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+  })
+}
 
 const cards = computed(() => [
   {
@@ -110,7 +176,7 @@ const cards = computed(() => [
     icon: 'lucide-banknote',
     iconBg: 'bg-surface-green-1 text-ink-green-3',
     valueClass:
-      remainingBudget.value < 0 ? 'text-ink-red-4' : 'text-ink-gray-9',
+      remainingBudget.value < 0 ? 'text-ink-red-5' : 'text-ink-gray-9',
   },
   {
     label: 'Active budgets',
@@ -124,9 +190,9 @@ const cards = computed(() => [
     icon: 'lucide-alert-triangle',
     iconBg:
       (data.value.over_budget ?? 0) > 0
-        ? 'bg-surface-red-1 text-ink-red-4'
+        ? 'bg-surface-red-1 text-ink-red-5'
         : 'bg-surface-gray-2 text-ink-gray-7',
-    valueClass: (data.value.over_budget ?? 0) > 0 ? 'text-ink-red-4' : 'text-ink-gray-9',
+    valueClass: (data.value.over_budget ?? 0) > 0 ? 'text-ink-red-5' : 'text-ink-gray-9',
   },
   {
     label: 'Dependents',

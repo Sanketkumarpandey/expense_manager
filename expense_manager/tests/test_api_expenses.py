@@ -104,6 +104,58 @@ class TestApiCreateExpenseFromText(TestCase):
 
 			self.assertEqual(result["warning"], "⚠️ Budget exceeded!")
 
+	def test_overspend_payload_is_appended(self):
+		doc = self._expense_doc()
+		with patch.object(api_expenses, "AIService") as mock_ai, \
+		     patch.object(api_expenses, "_category_lookup", return_value={}), \
+		     patch.object(api_expenses, "BudgetService") as mock_budget, \
+		     patch.object(api_expenses, "CategoryService") as mock_cat, \
+		     patch.object(api_expenses, "_current_user", return_value="guardian@example.com"):
+			mock_ai.create_expense_from_text.return_value = doc
+			mock_budget.build_inline_overspend_warning.return_value = ""
+			mock_budget.get_budget_usage.return_value = {
+				"allocated_amount": 1000.0,
+				"spent_amount": 1200.0,
+				"remaining_amount": -200.0,
+				"pct_used": 120.0,
+				"is_overspent": True,
+				"alert_threshold_pct": 90,
+			}
+			category = MagicMock()
+			category.category_name = "Food"
+			mock_cat.get_category.return_value = category
+
+			result = api_expenses.create_expense_from_text("lunch 250")
+
+			self.assertNotIn("warning", result)
+			self.assertEqual(result["overspend"]["category"], "cat-food-001")
+			self.assertEqual(result["overspend"]["category_name"], "Food")
+			self.assertEqual(result["overspend"]["spent_amount"], 1200.0)
+			self.assertEqual(result["overspend"]["allocated_amount"], 1000.0)
+
+	def test_no_overspend_payload_when_budget_ok(self):
+		doc = self._expense_doc()
+		with patch.object(api_expenses, "AIService") as mock_ai, \
+		     patch.object(api_expenses, "_category_lookup", return_value={}), \
+		     patch.object(api_expenses, "BudgetService") as mock_budget, \
+		     patch.object(api_expenses, "CategoryService") as mock_cat, \
+		     patch.object(api_expenses, "_current_user", return_value="guardian@example.com"):
+			mock_ai.create_expense_from_text.return_value = doc
+			mock_budget.build_inline_overspend_warning.return_value = ""
+			mock_budget.get_budget_usage.return_value = {
+				"allocated_amount": 1000.0,
+				"spent_amount": 400.0,
+				"remaining_amount": 600.0,
+				"pct_used": 40.0,
+				"is_overspent": False,
+				"alert_threshold_pct": 90,
+			}
+
+			result = api_expenses.create_expense_from_text("lunch 250")
+
+			self.assertNotIn("overspend", result)
+			mock_cat.get_category.assert_not_called()
+
 	def test_config_error_returns_friendly_message(self):
 		with patch.object(api_expenses, "AIService") as mock_ai, \
 		     patch.object(api_expenses, "_current_user", return_value="guardian@example.com"):

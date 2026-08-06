@@ -25,6 +25,7 @@ from expense_manager.telegram.handlers.start import handle_start
 from expense_manager.telegram.handlers.unknown import handle_unknown
 from expense_manager.telegram.handlers.unlink import handle_unlink
 from expense_manager.telegram.handlers.voice import handle_voice
+from expense_manager.services.exceptions import ExpenseManagerError
 
 
 Handler = Callable[[dict[str, object]], str]
@@ -125,6 +126,13 @@ def route_update(update: dict[str, object]) -> str | None:
 		)
 
 		return response
+
+	except ExpenseManagerError as exc:
+		frappe.logger("expense_manager").info(
+			"telegram_router status=domain_error message=%s",
+			str(exc),
+		)
+		return str(exc)
 
 	except Exception:
 		frappe.logger("expense_manager").exception(

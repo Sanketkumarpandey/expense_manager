@@ -10,7 +10,7 @@
         Allowed categories
         <span
           v-if="loaded && pool.length > 0"
-          class="rounded bg-surface-blue-1 px-1.5 py-0.5 text-[10px] font-medium text-ink-blue-5"
+          class="rounded bg-surface-blue-1 px-1.5 py-0.5 text-xs font-medium text-ink-blue-5"
         >
           {{ effective.length }} of {{ pool.length }}
         </span>
@@ -22,13 +22,13 @@
     </button>
 
     <div v-if="expanded" class="space-y-3 border-t border-outline-gray-1 p-3">
-      <p class="text-[11px] text-ink-gray-5">
+      <p class="text-xs text-ink-gray-5">
         By default your dependent can use every category. Turn a category off to restrict them.
       </p>
 
       <p
         v-if="errorMessage"
-        class="rounded-md bg-surface-red-1 px-3 py-2 text-sm text-ink-red-4"
+        class="rounded-md bg-surface-red-1 px-3 py-2 text-sm text-ink-red-5"
       >
         {{ errorMessage }}
       </p>
@@ -64,7 +64,9 @@
 
 <script setup>
 import { reactive, ref } from 'vue'
-import { Switch, call, request } from 'frappe-ui'
+import { Switch, call, request, toast } from 'frappe-ui'
+import ShieldCheck from '~icons/lucide/shield-check'
+import ChevronDown from '~icons/lucide/chevron-down'
 
 const props = defineProps({
   dependent: { type: Object, required: true },
@@ -144,11 +146,13 @@ async function onToggle(cat, value) {
         dependent: props.dependent.name,
         category: cat.name,
       })
+      toast.success(`"${cat.category_name}" is allowed for ${props.dependent.dependent_name}.`)
     } else if (rawSet.value.has(cat.name)) {
       await call('expense_manager.api.dependents.remove_allowed_category', {
         dependent: props.dependent.name,
         category: cat.name,
       })
+      toast.success(`"${cat.category_name}" restricted for ${props.dependent.dependent_name}.`)
     } else {
       for (const other of effective.value) {
         if (other.name !== cat.name) {
@@ -158,8 +162,10 @@ async function onToggle(cat, value) {
           })
         }
       }
+      toast.success(`"${cat.category_name}" restricted for ${props.dependent.dependent_name}.`)
     }
   } catch (e) {
+    toast.error(e.message || 'Could not update allowed categories.')
     errorMessage.value = e.message || 'Could not update allowed categories.'
   } finally {
     try {

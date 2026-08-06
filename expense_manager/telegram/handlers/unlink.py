@@ -14,7 +14,7 @@ def handle_unlink(update: dict[str, object]) -> str:
 	parts = text.strip().split(maxsplit=1)
 
 	if len(parts) < 2 or parts[1].strip().lower() != "confirm":
-		return "This will unlink your Telegram account. Send /unlink confirm to proceed."
+		return "This will unlink your Telegram account. Send {/unlink confirm } to proceed."
 
 	result = TelegramService.unlink_account(telegram_user_id)
 	return result["message"]

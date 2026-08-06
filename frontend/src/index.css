@@ -12,4 +12,32 @@ body {
 
 :root {
   color-scheme: light;
+  --surface-blue-3: rgb(0 92 163);
+  --surface-blue-4: rgb(0 72 128);
+  --surface-red-6: rgb(181 42 42);
+  --ink-blue-4: rgb(0 92 163);
+  --ink-blue-5: rgb(0 72 128);
+  --ink-red-5: rgb(148 31 31);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --surface-blue-3: rgb(90 174 242);
+  --surface-blue-4: rgb(60 130 200);
+  --surface-red-6: rgb(235 77 82);
+  --ink-blue-4: rgb(90 174 242);
+  --ink-blue-5: rgb(140 193 236);
+  --ink-red-5: rgb(235 77 82);
+}
+
+/* Dark mode: primary solid buttons turn green with white text/icons. */
+[data-theme='dark'] button.bg-surface-gray-7 {
+  background-color: rgb(48 166 109);
+  color: #ffffff;
+}
+[data-theme='dark'] button.bg-surface-gray-7:hover {
+  background-color: rgb(39 143 94);
+}
+[data-theme='dark'] button.bg-surface-gray-7:active {
+  background-color: rgb(22 121 76);
 }

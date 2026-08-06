@@ -226,6 +226,27 @@ class ExpenseService:
         )
 
     @staticmethod
+    def attach_dependent_names(
+        rows: list[dict],
+        owner_user: str,
+    ) -> list[dict]:
+        """Resolve the current dependent_name for every row that references a
+        dependent, so displayed names always reflect the dependent's latest
+        rename instead of a value captured at expense creation time."""
+        ids = {row.get("dependent") for row in rows if row.get("dependent")}
+        names: dict[str, str] = {}
+        if ids:
+            dep_rows = frappe.get_all(
+                "Dependent",
+                filters={"name": ["in", list(ids)], "guardian": owner_user},
+                fields=["name", "dependent_name"],
+            )
+            names = {dep["name"]: dep["dependent_name"] for dep in dep_rows}
+        for row in rows:
+            row["dependent_name"] = names.get(row.get("dependent"), "")
+        return rows
+
+    @staticmethod
     def get_expenses_by_category(
         owner_user: str,
         category: str,

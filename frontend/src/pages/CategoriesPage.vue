@@ -1,24 +1,24 @@
 <template>
   <div class="space-y-6">
-    <section class="flex flex-col gap-3 rounded-lg border border-outline-gray-1 bg-surface-white p-4 sm:flex-row sm:items-center sm:justify-between">
-      <div class="flex items-center gap-1 rounded-lg bg-surface-gray-2 p-1">
-        <button
-          v-for="mode in viewModes"
-          :key="mode.value"
-          type="button"
-          class="rounded-md px-3 py-1.5 text-sm transition-colors"
-          :class="view === mode.value
-            ? 'bg-surface-white font-medium text-ink-gray-9 shadow-sm'
-            : 'text-ink-gray-6 hover:text-ink-gray-8'"
-          @click="setView(mode.value)"
-        >
-          {{ mode.label }}
-        </button>
-      </div>
-      <div class="flex items-center gap-3">
-        <p v-if="message" class="text-sm font-medium" :class="message.type === 'error' ? 'text-ink-red-4' : 'text-ink-green-3'">
-          {{ message.text }}
-        </p>
+    <div class="flex items-center justify-between">
+      <p class="text-sm text-ink-gray-5">
+        {{ categories.length }} {{ categories.length === 1 ? 'category' : 'categories' }}
+      </p>
+      <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1 rounded-lg bg-surface-gray-2 p-1">
+          <button
+            v-for="mode in viewModes"
+            :key="mode.value"
+            type="button"
+            class="rounded-md px-3 py-1.5 text-sm transition-colors"
+            :class="view === mode.value
+              ? 'bg-surface-white font-medium text-ink-gray-9 shadow-sm'
+              : 'text-ink-gray-6 hover:text-ink-gray-8'"
+            @click="setView(mode.value)"
+          >
+            {{ mode.label }}
+          </button>
+        </div>
         <Button variant="solid" size="sm" @click="openCreate">
           <template #prefix>
             <Plus class="size-4 text-white" />
@@ -26,7 +26,7 @@
           New category
         </Button>
       </div>
-    </section>
+    </div>
 
     <ResourceState :resource="list" label="your categories">
       <template #skeleton>
@@ -68,18 +68,26 @@
               variant="ghost"
               size="sm"
               title="Archive"
+              :loading="busy === 'archive-' + category.name"
               @click="archive(category)"
             >
               <template #prefix>
                 <Archive class="size-4" />
               </template>
             </Button>
-            <Button v-else variant="ghost" size="sm" title="Restore" @click="restore(category)">
+            <Button
+              v-else
+              variant="ghost"
+              size="sm"
+              title="Restore"
+              :loading="busy === 'restore-' + category.name"
+              @click="restore(category)"
+            >
               <template #prefix>
                 <RotateCcw class="size-4" />
               </template>
             </Button>
-            <Button variant="ghost" size="sm" title="Delete" class="text-ink-gray-5 hover:text-ink-red-4" @click="requestDelete(category)">
+            <Button variant="ghost" size="sm" title="Delete" class="text-ink-gray-5 hover:text-ink-red-5" @click="requestDelete(category)">
               <template #prefix>
                 <Trash2 class="size-4" />
               </template>
@@ -104,7 +112,12 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { Button, createResource, call } from 'frappe-ui'
+import { Button, createResource, call, toast } from 'frappe-ui'
+import Plus from '~icons/lucide/plus'
+import Pencil from '~icons/lucide/pencil'
+import Archive from '~icons/lucide/archive'
+import RotateCcw from '~icons/lucide/rotate-ccw'
+import Trash2 from '~icons/lucide/trash-2'
 import ResourceState from '@/components/ResourceState.vue'
 import CategoryFormDialog from '@/components/CategoryFormDialog.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
@@ -130,11 +143,7 @@ function setView(value) {
   list.fetch()
 }
 
-const message = ref(null)
-
-function showMessage(text, type = 'success') {
-  message.value = { text, type }
-}
+const busy = ref(null)
 
 const formOpen = ref(false)
 const editingCategory = ref(null)
@@ -152,22 +161,48 @@ function openEdit(category) {
 function onSaved(result) {
   list.reload()
   if (editingCategory.value) {
-    showMessage('Category updated.')
+    toast.success('Category updated.')
   } else {
-    showMessage(`Category "${result.category_name}" created.`)
+    toast.success(`Category "${result.category_name}" created.`)
   }
 }
 
 async function archive(category) {
-  await call('expense_manager.api.categories.archive_category', { category: category.name })
-  showMessage(`Category "${category.category_name}" archived.`)
-  list.reload()
+  busy.value = 'archive-' + category.name
+  try {
+    const result = await call('expense_manager.api.categories.archive_category', {
+      category: category.name,
+    })
+    if (result && result.success === false) {
+      toast.error(result.message)
+    } else {
+      toast.success(`Category "${category.category_name}" archived.`)
+      list.reload()
+    }
+  } catch (e) {
+    toast.error(e.message || 'Could not archive the category.')
+  } finally {
+    busy.value = null
+  }
 }
 
 async function restore(category) {
-  await call('expense_manager.api.categories.restore_category', { category: category.name })
-  showMessage(`Category "${category.category_name}" restored.`)
-  list.reload()
+  busy.value = 'restore-' + category.name
+  try {
+    const result = await call('expense_manager.api.categories.restore_category', {
+      category: category.name,
+    })
+    if (result && result.success === false) {
+      toast.error(result.message)
+    } else {
+      toast.success(`Category "${category.category_name}" restored.`)
+      list.reload()
+    }
+  } catch (e) {
+    toast.error(e.message || 'Could not restore the category.')
+  } finally {
+    busy.value = null
+  }
 }
 
 const confirmOpen = ref(false)
@@ -191,14 +226,14 @@ async function confirmDelete() {
       category: deleteTarget.value.name,
     })
     if (result && result.success === false) {
-      showMessage(result.message, 'error')
+      toast.error(result.message)
     } else {
-      showMessage(`Category "${deleteTarget.value.category_name}" deleted.`)
+      toast.success(`Category "${deleteTarget.value.category_name}" deleted.`)
       list.reload()
     }
     confirmOpen.value = false
   } catch (e) {
-    showMessage(e.message || 'Could not delete the category.', 'error')
+    toast.error(e.message || 'Could not delete the category.')
     confirmOpen.value = false
   } finally {
     deleting.value = false

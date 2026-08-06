@@ -567,6 +567,14 @@ class ReportService:
 
         budget_summary = ReportService.get_budget_summary(owner_user)
 
+        recent = ExpenseService.get_recent_expenses(owner_user, limit=6)
+        category_names = ReportService._category_name_lookup(owner_user)
+        for row in recent:
+            cat_info = category_names.get(row.get("category"), {})
+            row["category_name"] = cat_info.get("category_name", row.get("category", ""))
+            row["category_icon"] = cat_info.get("icon", "")
+        ExpenseService.attach_dependent_names(recent, owner_user)
+
         return {
             "total_expense": total_expense,
             "monthly_expense": monthly_expense,
@@ -574,6 +582,8 @@ class ReportService:
             "over_budget": sum(1 for row in budget_summary if row["is_overspent"]),
             "dependents": len(DependentService.list_dependents(owner_user, active_only=True)),
             "remaining_budget": sum(row["remaining_amount"] for row in budget_summary),
+            "recent_expenses": recent,
+            "overspent": [row for row in budget_summary if row["is_overspent"]],
         }
 
     @staticmethod

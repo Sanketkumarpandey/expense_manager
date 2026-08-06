@@ -16,6 +16,7 @@ declare module 'vue' {
     DependentFormDialog: typeof import('./src/components/DependentFormDialog.vue')['default']
     DependentPicker: typeof import('./src/components/DependentPicker.vue')['default']
     ExpenseFormDialog: typeof import('./src/components/ExpenseFormDialog.vue')['default']
+    OverspendBanner: typeof import('./src/components/OverspendBanner.vue')['default']
     PocketMoneyFormDialog: typeof import('./src/components/PocketMoneyFormDialog.vue')['default']
     ResourceState: typeof import('./src/components/ResourceState.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

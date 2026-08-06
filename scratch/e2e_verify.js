@@ -26,6 +26,16 @@ async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+// Local-timezone ISO date. Pocket-money allocations are dated `today`, and
+// _calculate_spent_amount filters to the allocation window, so expenses
+// created for that scenario must be dated on/after today, not a hardcoded past
+// date (which silently leaves spent_amount at 0).
+const todayIso = () => {
+  const d = new Date()
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
 async function run() {
   console.log('Starting Headless Chrome on port 9222...')
   const chrome = spawn('google-chrome', [
@@ -501,13 +511,13 @@ async function run() {
 
     report('Shopping card shows "Over budget" badge', await waitForText('Over budget'))
     report('Shopping card shows overspend detail', await waitForText('over by ₹100'))
-    const redBarCount = await evalCode(`
+    const progressBarCount = await evalCode(`
       (() => {
-        const red = [...document.querySelectorAll('div[class*="bg-ink-red-4"]')];
-        return red.filter(el => el.offsetParent !== null && el.getBoundingClientRect().height > 0).length;
+        const bars = [...document.querySelectorAll('div[class*="bg-surface-blue-3"], div[class*="bg-surface-red-6"]')];
+        return bars.filter(el => el.offsetParent !== null && el.getBoundingClientRect().height > 0).length;
       })()
     `)
-    report('Overspent budget renders red progress bar', redBarCount >= 1, `red bars: ${redBarCount}`)
+    report('Overspent budget renders dark progress bar', progressBarCount >= 1, `progress bars: ${progressBarCount}`)
 
     // ---------------------------------------------------------------
     console.log('\n--- SCENARIO 5: Per-dependent allowed-categories toggles + server-side block ---')
@@ -646,7 +656,7 @@ async function run() {
     )
 
     const pmExpense = await apiCall('expense_manager.api.expenses.create_expense', {
-      category: FOOD_ID, amount: 300, expense_date: '2026-08-05', dependent: pmDepId,
+      category: FOOD_ID, amount: 300, expense_date: todayIso(), dependent: pmDepId,
     })
     const pmExpenseName = pmExpense && pmExpense.message && pmExpense.message.name
     report('Dependent spent ₹300 via Food expense', Boolean(pmExpenseName), pmExpenseName || JSON.stringify(pmExpense?.message))

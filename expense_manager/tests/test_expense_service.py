@@ -1045,6 +1045,54 @@ class TestListExpenses(ServiceTestCase):
         )
 
 
+class TestAttachDependentNames(ServiceTestCase):
+    """Tests for ExpenseService.attach_dependent_names."""
+
+    def test_attach_names_resolves_live_dependent_name(self) -> None:
+        """Rows get the current dependent_name instead of a captured value."""
+        rows = [
+            {"name": "exp-001", "dependent": "dep-son-001"},
+            {"name": "exp-002", "dependent": "dep-son-001"},
+        ]
+        with patch(
+            "frappe.get_all",
+            return_value=[
+                {"name": "dep-son-001", "dependent_name": "Alex Junior"},
+            ],
+        ) as get_all_mock:
+            result = Svc.attach_dependent_names(rows, SAMPLE_USER)
+
+        self.assertEqual(result[0]["dependent_name"], "Alex Junior")
+        self.assertEqual(result[1]["dependent_name"], "Alex Junior")
+        filters = get_all_mock.call_args[1]["filters"]
+        self.assertEqual(filters["guardian"], SAMPLE_USER)
+
+    def test_attach_names_blank_when_dependent_unknown(self) -> None:
+        """Rows referencing a dependent that no longer resolves get a blank name."""
+        rows = [{"name": "exp-001", "dependent": "dep-gone-001"}]
+        with patch("frappe.get_all", return_value=[]):
+            result = Svc.attach_dependent_names(rows, SAMPLE_USER)
+
+        self.assertEqual(result[0]["dependent_name"], "")
+
+    def test_attach_names_skips_rows_without_dependent(self) -> None:
+        """Rows without a dependent are left blank without a lookup."""
+        rows = [{"name": "exp-001", "dependent": None}]
+        with patch("frappe.get_all") as get_all_mock:
+            result = Svc.attach_dependent_names(rows, SAMPLE_USER)
+
+        self.assertEqual(result[0]["dependent_name"], "")
+        get_all_mock.assert_not_called()
+
+    def test_attach_names_empty_rows_no_lookup(self) -> None:
+        """An empty list is returned without any lookup."""
+        with patch("frappe.get_all") as get_all_mock:
+            result = Svc.attach_dependent_names([], SAMPLE_USER)
+
+        self.assertEqual(result, [])
+        get_all_mock.assert_not_called()
+
+
 # ------------------------------------------------------------------
 # Convenience list wrappers
 # ------------------------------------------------------------------

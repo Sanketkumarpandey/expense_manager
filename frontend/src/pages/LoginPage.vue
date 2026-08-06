@@ -1,8 +1,8 @@
 <template>
-  <div class="flex h-screen items-center justify-center bg-gray-50">
-    <div class="w-80 rounded-lg border border-gray-200 bg-white p-6">
-      <h1 class="text-xl font-semibold text-gray-800">Expense Manager</h1>
-      <p class="mb-6 mt-1 text-sm text-gray-500">Sign in to continue</p>
+  <div class="flex h-screen items-center justify-center bg-surface-gray-1">
+    <div class="w-80 rounded-lg border border-outline-gray-1 bg-surface-white p-6">
+      <h1 class="text-xl font-semibold text-ink-gray-9">Expense Manager</h1>
+      <p class="mb-6 mt-1 text-sm text-ink-gray-5">Sign in to continue</p>
       <form @submit.prevent="onSubmit">
         <Input
           v-model="user"
@@ -20,7 +20,7 @@
           placeholder="Your password"
           autocomplete="current-password"
         />
-        <p v-if="error" class="mb-3 text-sm text-red-600">{{ error }}</p>
+        <p v-if="error" class="mb-3 text-sm text-ink-red-5">{{ error }}</p>
         <Button variant="solid" type="submit" :loading="loading" :disabled="loading">
           Log in
         </Button>

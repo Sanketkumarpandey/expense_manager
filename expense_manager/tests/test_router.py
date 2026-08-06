@@ -66,3 +66,30 @@ class TestTelegramRouter(TestCase):
 		self.assertIsNone(router.route_update({"callback_query": {"data": "/help"}}))
 		voice_response = router.route_update({"message": {"voice": {"file_id": "file"}}})
 		self.assertIsNotNone(voice_response)
+
+	def test_domain_error_message_is_surfaced(self) -> None:
+		"""Known business errors reach the user with their real message."""
+		from expense_manager.services.exceptions import TelegramAlreadyLinkedError
+
+		def _boom(_update):
+			raise TelegramAlreadyLinkedError(
+				"This user already has a linked Telegram account."
+			)
+
+		with patch.dict(router.COMMAND_HANDLERS, {"boom": _boom}):
+			response = router.route_update({"message": {"text": "/boom"}})
+
+		self.assertEqual(
+			response,
+			"This user already has a linked Telegram account.",
+		)
+
+	def test_unexpected_error_returns_generic_message(self) -> None:
+		"""Non-domain exceptions keep the generic fallback message."""
+		def _boom(_update):
+			raise ValueError("internal failure")
+
+		with patch.dict(router.COMMAND_HANDLERS, {"boom": _boom}):
+			response = router.route_update({"message": {"text": "/boom"}})
+
+		self.assertEqual(response, "Sorry, something went wrong. Please try again later.")

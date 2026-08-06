@@ -17,37 +17,70 @@
           <span class="hidden sm:inline">Add</span>
         </Button>
       </div>
-      <p
-        v-if="quickMessage"
-        class="mt-3 text-sm font-medium"
-        :class="{
-          'text-ink-red-4': quickMessage.type === 'error',
-          'text-ink-green-3': quickMessage.type === 'success',
-          'text-ink-gray-8': quickMessage.type === 'warning',
-        }"
-      >
-        {{ quickMessage.text }}
-      </p>
     </section>
 
-    <section class="flex flex-col gap-3 rounded-lg border border-outline-gray-1 bg-surface-white p-4">
+    <OverspendBanner
+      v-if="overspend"
+      :overspend="overspend"
+      @dismiss="overspend = null"
+    />
+
+    <div class="flex items-center justify-between">
+      <p class="text-sm text-ink-gray-5">
+        {{ expenses.length }} {{ expenses.length === 1 ? 'expense' : 'expenses' }}
+      </p>
+      <div class="flex items-center gap-2">
+        <Button
+          variant="subtle"
+          size="sm"
+          :class="showFilters || hasFilters ? 'bg-surface-gray-2' : ''"
+          @click="showFilters = !showFilters"
+        >
+          <template #prefix>
+            <SlidersHorizontal class="size-4" />
+          </template>
+          Filters
+          <span
+            v-if="activeFilterCount"
+            class="ml-1 rounded-full bg-surface-gray-3 px-1.5 text-xs font-medium text-ink-gray-7"
+          >
+            {{ activeFilterCount }}
+          </span>
+        </Button>
+        <Button variant="solid" size="sm" @click="openCreate">
+          <template #prefix>
+            <span class="lucide-plus size-4 text-white" />
+          </template>
+          New expense
+        </Button>
+      </div>
+    </div>
+
+    <section
+      v-if="showFilters || hasFilters"
+      class="rounded-lg border border-outline-gray-1 bg-surface-white p-4"
+    >
       <div class="flex flex-wrap items-end gap-4 sm:gap-6">
-        <div class="w-48">
+        <div class="flex w-48 flex-col gap-1.5">
           <FormLabel label="Dependent" />
           <DependentPicker v-model="filters.dependent" placeholder="All dependents" />
         </div>
-        <div class="w-48">
+
+        <div class="flex w-48 flex-col gap-1.5">
           <FormLabel label="Category" />
           <CategoryPicker v-model="filters.category" placeholder="All categories" />
         </div>
-        <div class="w-40">
+
+        <div class="flex w-40 flex-col gap-1.5">
           <FormLabel label="From" />
           <DatePicker v-model="filters.date_from" placeholder="Start date" />
         </div>
-        <div class="w-40">
+
+        <div class="flex w-40 flex-col gap-1.5">
           <FormLabel label="To" />
           <DatePicker v-model="filters.date_to" placeholder="End date" />
         </div>
+
         <Button
           v-if="hasFilters"
           variant="subtle"
@@ -59,18 +92,6 @@
             <span class="lucide-x size-4" />
           </template>
           Clear filters
-        </Button>
-      </div>
-
-      <div class="flex items-center justify-between">
-        <p class="text-sm text-ink-gray-5">
-          {{ expenses.length }} {{ expenses.length === 1 ? 'expense' : 'expenses' }}
-        </p>
-        <Button variant="solid" size="sm" @click="openCreate">
-          <template #prefix>
-            <span class="lucide-plus size-4 text-white" />
-          </template>
-          New expense
         </Button>
       </div>
     </section>
@@ -88,47 +109,77 @@
         </p>
       </div>
 
-      <div v-else class="divide-y divide-outline-gray-1 rounded-lg border border-outline-gray-1 bg-surface-white">
-        <div
-          v-for="expense in expenses"
-          :key="expense.name"
-          class="flex items-center gap-3 px-4 py-3"
-        >
-          <span
-            class="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-gray-2 text-lg"
+      <div v-else class="overflow-hidden rounded-lg border border-outline-gray-1 bg-surface-white">
+        <div class="hidden items-center gap-4 border-b border-outline-gray-1 px-4 py-2 text-xs font-medium text-ink-gray-5 md:flex">
+          <span class="w-24 shrink-0">Date</span>
+          <span class="flex-1">Description</span>
+          <span class="w-32 shrink-0 text-center">Category</span>
+          <span class="w-28 shrink-0 text-right">Amount</span>
+          <span class="w-20 shrink-0" />
+        </div>
+
+        <div class="divide-y divide-outline-gray-1">
+          <div
+            v-for="expense in expenses"
+            :key="expense.name"
+            class="flex items-center gap-4 px-4 py-3"
           >
-            {{ expense.category_icon || '🏷️' }}
-          </span>
-
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-sm font-medium text-ink-gray-9">
-              {{ expense.description || expense.category_name || 'Expense' }}
-            </p>
-            <p class="truncate text-xs text-ink-gray-5">
+            <span class="hidden w-24 shrink-0 text-sm text-ink-gray-5 md:block">
               {{ formatDate(expense.expense_date) }}
-              <span v-if="expense.dependent_name" class="text-ink-gray-4">
-                · {{ expense.dependent_name }}
-              </span>
-              <span v-if="expense.payment_method" class="text-ink-gray-4">
-                · {{ expense.payment_method }}
-              </span>
-            </p>
-          </div>
+            </span>
 
-          <div class="flex shrink-0 items-center gap-1.5">
-            <p class="mr-2 text-sm font-semibold text-ink-gray-9">
+            <div class="flex min-w-0 flex-1 items-center gap-3">
+              <span
+                class="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-gray-2 text-lg"
+              >
+                {{ expense.category_icon || '🏷️' }}
+              </span>
+              <div class="min-w-0">
+                <p class="truncate text-sm font-medium text-ink-gray-9">
+                  {{ expense.description || expense.category_name || 'Expense' }}
+                </p>
+                <p class="truncate text-xs text-ink-gray-5">
+                  <span class="md:hidden">{{ formatDate(expense.expense_date) }}</span>
+                  <span v-if="expense.dependent_name" class="text-ink-gray-4 md:hidden">
+                    · {{ expense.dependent_name }}
+                  </span>
+                  <span v-if="expense.payment_method" class="text-ink-gray-4">
+                    · {{ expense.payment_method }}
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <div class="hidden w-32 shrink-0 flex-col items-center gap-1 md:flex">
+              <span
+                class="max-w-full truncate rounded-full bg-surface-gray-2 px-2.5 py-0.5 text-center text-xs text-ink-gray-7"
+              >
+                {{ expense.category_name || expense.category }}
+              </span>
+              <span
+                v-if="expense.dependent_name"
+                class="max-w-full truncate text-xs text-ink-gray-4"
+              >
+                {{ expense.dependent_name }}
+              </span>
+            </div>
+
+            <p class="w-28 shrink-0 text-right text-sm font-semibold text-ink-gray-9">
               {{ inr(expense.amount) }}
             </p>
-            <Button variant="ghost" size="sm" title="Edit" @click="openEdit(expense)">
-              <template #prefix>
-                <span class="lucide-pencil size-4" />
-              </template>
-            </Button>
-            <Button variant="ghost" size="sm" title="Delete" @click="requestDelete(expense)">
-              <template #prefix>
-                <span class="lucide-trash-2 size-4" />
-              </template>
-            </Button>
+
+            <div class="flex w-20 shrink-0 items-center justify-end gap-1.5 pl-1">
+              <Button variant="ghost" size="sm" title="Edit" @click="openEdit(expense)">
+                <template #prefix>
+                  <span class="lucide-pencil size-4" />
+                </template>
+              </Button>
+              <Button variant="ghost" size="sm" title="Delete" @click="requestDelete(expense)">
+                <template #prefix>
+                  <span class="lucide-trash-2 size-4" />
+                </template>
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -148,7 +199,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import {
   Button,
   DatePicker,
@@ -156,16 +207,19 @@ import {
   Input,
   createResource,
   call,
+  toast,
 } from 'frappe-ui'
+import SlidersHorizontal from '~icons/lucide/sliders-horizontal'
 import ResourceState from '@/components/ResourceState.vue'
 import CategoryPicker from '@/components/CategoryPicker.vue'
 import DependentPicker from '@/components/DependentPicker.vue'
 import ExpenseFormDialog from '@/components/ExpenseFormDialog.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import OverspendBanner from '@/components/OverspendBanner.vue'
 
 const quickText = ref('')
 const quickAdding = ref(false)
-const quickMessage = ref(null)
+const overspend = ref(null)
 
 const filters = reactive({
   dependent: null,
@@ -173,6 +227,7 @@ const filters = reactive({
   date_from: null,
   date_to: null,
 })
+const showFilters = ref(false)
 
 function buildFilters() {
   const params = {}
@@ -191,14 +246,16 @@ const list = createResource({
 })
 
 const hasFilters = computed(() => Object.keys(buildFilters()).length > 0)
+const activeFilterCount = computed(() => Object.keys(buildFilters()).length)
 const expenses = computed(() => list.data || [])
+
+watch(filters, () => list.reload(), { deep: true })
 
 function clearFilters() {
   filters.dependent = null
   filters.category = null
   filters.date_from = null
   filters.date_to = null
-  list.fetch()
 }
 
 const formOpen = ref(false)
@@ -216,14 +273,16 @@ function openEdit(expense) {
 
 function onSaved(result) {
   list.reload()
-  if (result && result.warning) {
-    showQuickMessage(result.warning, 'warning')
-  } else if (editingExpense.value) {
-    showQuickMessage('Expense updated.', 'success')
+  if (result && result.overspend) {
+    overspend.value = result.overspend
+  } else if (result && result.warning) {
+    toast.warning(result.warning)
+  }
+  if (editingExpense.value) {
+    toast.success('Expense updated.')
   } else {
-    showQuickMessage(
+    toast.success(
       `Added ${inr(result.amount)} under ${result.category_name || 'a category'}.`,
-      'success',
     )
   }
 }
@@ -233,29 +292,29 @@ async function quickAdd() {
   if (!text || quickAdding.value) return
 
   quickAdding.value = true
-  quickMessage.value = null
   try {
     const result = await call('expense_manager.api.expenses.create_expense_from_text', {
       text,
     })
     if (result && result.success === false) {
-      showQuickMessage(result.message, 'error')
+      toast.error(result.message)
       return
     }
     quickText.value = ''
     list.reload()
-    let message = `Added ${inr(result.amount)} under ${result.category_name || 'a category'}.`
-    if (result.warning) message += ' ' + result.warning
-    showQuickMessage(message, 'success')
+    toast.success(
+      `Added ${inr(result.amount)} under ${result.category_name || 'a category'}.`,
+    )
+    if (result.overspend) {
+      overspend.value = result.overspend
+    } else if (result.warning) {
+      toast.warning(result.warning)
+    }
   } catch (e) {
-    showQuickMessage(e.message || 'Could not add the expense.', 'error')
+    toast.error(e.message || 'Could not add the expense.')
   } finally {
     quickAdding.value = false
   }
-}
-
-function showQuickMessage(text, type) {
-  quickMessage.value = { text, type }
 }
 
 const confirmOpen = ref(false)
@@ -282,14 +341,14 @@ async function confirmDelete() {
       expense: deleteTarget.value.name,
     })
     if (result && result.success === false) {
-      showQuickMessage(result.message, 'error')
+      toast.error(result.message)
     } else {
-      showQuickMessage('Expense deleted.', 'success')
+      toast.success('Expense deleted.')
       list.reload()
     }
     confirmOpen.value = false
   } catch (e) {
-    showQuickMessage(e.message || 'Could not delete the expense.', 'error')
+    toast.error(e.message || 'Could not delete the expense.')
     confirmOpen.value = false
   } finally {
     deleting.value = false
@@ -300,7 +359,7 @@ const inr = (value) =>
   new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
-    minimumFractionDigits: 2,
+    minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(value || 0)
 

@@ -35,7 +35,7 @@
 
         <p
           v-if="errorMessage"
-          class="rounded-md bg-surface-red-1 px-3 py-2 text-sm text-ink-red-4"
+          class="rounded-md bg-surface-red-1 px-3 py-2 text-sm text-ink-red-5"
         >
           {{ errorMessage }}
         </p>

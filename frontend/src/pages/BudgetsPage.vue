@@ -1,12 +1,62 @@
 <template>
   <div class="space-y-6">
-    <section class="flex flex-col gap-3 rounded-lg border border-outline-gray-1 bg-surface-white p-4">
-      <div class="flex flex-wrap items-end gap-4 sm:gap-6">
-        <div class="w-48">
+    <section class="rounded-lg border border-outline-gray-1 bg-surface-white p-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-1 rounded-lg bg-surface-tea p-1">
+            <button
+              v-for="mode in viewModes"
+              :key="String(mode.value)"
+              type="button"
+              class="rounded-md px-3 py-1.5 text-sm transition-colors"
+              :class="activeOnly === mode.value
+                ? 'bg-surface-white font-medium text-ink-gray-9 shadow-sm'
+                : 'text-ink-gray-6 hover:text-ink-gray-8'"
+              @click="setView(mode.value)"
+            >
+              {{ mode.label }}
+            </button>
+          </div>
+          <p class="text-sm text-ink-gray-5">
+            {{ mergedBudgets.length }} {{ mergedBudgets.length === 1 ? 'budget' : 'budgets' }}
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <Button
+            variant="subtle"
+            size="sm"
+            :class="showFilters || hasFilters ? 'bg-surface-gray-2' : ''"
+            @click="showFilters = !showFilters"
+          >
+            <template #prefix>
+              <SlidersHorizontal class="size-4" />
+            </template>
+            Filters
+            <span
+              v-if="activeFilterCount"
+              class="ml-1 rounded-full bg-surface-gray-3 px-1.5 text-xs font-medium text-ink-gray-7"
+            >
+              {{ activeFilterCount }}
+            </span>
+          </Button>
+          <Button variant="solid" size="sm" @click="openCreate">
+            <template #prefix>
+              <Plus class="size-4 text-white" />
+            </template>
+            New budget
+          </Button>
+        </div>
+      </div>
+
+      <section
+        v-if="showFilters || hasFilters"
+        class="mt-3 flex flex-wrap items-end gap-4 border-t border-outline-gray-1 pt-3 sm:gap-6"
+      >
+        <div class="flex w-48 flex-col gap-1.5">
           <FormLabel label="Category" />
           <CategoryPicker v-model="filters.category" placeholder="All categories" />
         </div>
-        <div class="w-48">
+        <div class="flex w-48 flex-col gap-1.5">
           <FormLabel label="Dependent" />
           <DependentPicker v-model="filters.dependent" placeholder="All dependents" />
         </div>
@@ -22,40 +72,7 @@
           </template>
           Clear filters
         </Button>
-      </div>
-
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="flex items-center gap-1 rounded-lg bg-surface-gray-2 p-1">
-            <button
-              v-for="mode in viewModes"
-              :key="mode.value"
-              type="button"
-              class="rounded-md px-3 py-1.5 text-sm transition-colors"
-              :class="activeOnly === mode.value
-                ? 'bg-surface-white font-medium text-ink-gray-9 shadow-sm'
-                : 'text-ink-gray-6 hover:text-ink-gray-8'"
-              @click="setView(mode.value)"
-            >
-              {{ mode.label }}
-            </button>
-          </div>
-          <p class="text-sm text-ink-gray-5">
-            {{ mergedBudgets.length }} {{ mergedBudgets.length === 1 ? 'budget' : 'budgets' }}
-          </p>
-        </div>
-        <div class="flex items-center gap-3">
-          <p v-if="message" class="text-sm font-medium" :class="message.type === 'error' ? 'text-ink-red-4' : 'text-ink-green-3'">
-            {{ message.text }}
-          </p>
-          <Button variant="solid" size="sm" @click="openCreate">
-            <template #prefix>
-              <Plus class="size-4 text-white" />
-            </template>
-            New budget
-          </Button>
-        </div>
-      </div>
+      </section>
     </section>
 
     <ResourceState :resource="combined" label="your budgets">
@@ -91,7 +108,7 @@
               </span>
               <span
                 v-if="isFlagged(budget)"
-                class="rounded px-1.5 py-0.5 text-xs font-medium text-ink-red-4"
+                class="rounded px-1.5 py-0.5 text-xs font-medium text-ink-red-5"
                 :class="isOverBudget(budget) ? 'bg-surface-red-1' : 'bg-surface-red-2'"
               >
                 {{ isOverBudget(budget) ? 'Over budget' : `${usagePct(budget)}% used` }}
@@ -104,16 +121,16 @@
 
             <div v-if="usageOf(budget)" class="mt-2 max-w-md">
               <div class="flex items-center gap-2">
-                <div class="h-2.5 flex-1 overflow-hidden rounded-full bg-gray-200 border border-gray-300">
+                <div class="h-2.5 flex-1 overflow-hidden rounded-full bg-surface-gray-2">
                   <div
                     class="h-full rounded-full transition-all"
-                    :class="isOverBudget(budget) ? 'bg-red-600' : (isFlagged(budget) ? 'bg-amber-600' : 'bg-blue-600')"
+                    :class="isOverBudget(budget) ? 'bg-surface-red-6' : 'bg-surface-blue-3'"
                     :style="{ width: `${Math.min(usagePct(budget), 100)}%` }"
                   />
                 </div>
                 <span class="text-xs font-medium text-ink-gray-6">{{ usagePct(budget) }}%</span>
               </div>
-              <p class="mt-1 text-xs" :class="isFlagged(budget) ? 'text-ink-red-4' : 'text-ink-gray-5'">
+              <p class="mt-1 text-xs" :class="isFlagged(budget) ? 'text-ink-red-5' : 'text-ink-gray-5'">
                 {{ inr(usageOf(budget).spent_amount) }} of {{ inr(usageOf(budget).allocated_amount) }} spent
                 · {{ inr(usageOf(budget).remaining_amount) }} left
                 <span v-if="isOverBudget(budget)">· over by {{ inr(Math.abs(usageOf(budget).remaining_amount)) }}</span>
@@ -132,18 +149,26 @@
               variant="ghost"
               size="sm"
               title="Archive"
+              :loading="busy === 'archive-' + budget.name"
               @click="archive(budget)"
             >
               <template #prefix>
                 <Archive class="size-4" />
               </template>
             </Button>
-            <Button v-else variant="ghost" size="sm" title="Restore" @click="restore(budget)">
+            <Button
+              v-else
+              variant="ghost"
+              size="sm"
+              title="Restore"
+              :loading="busy === 'restore-' + budget.name"
+              @click="restore(budget)"
+            >
               <template #prefix>
                 <RotateCcw class="size-4" />
               </template>
             </Button>
-            <Button variant="ghost" size="sm" title="Delete" class="text-ink-gray-5 hover:text-ink-red-4" @click="requestDelete(budget)">
+            <Button variant="ghost" size="sm" title="Delete" class="text-ink-gray-5 hover:text-ink-red-5" @click="requestDelete(budget)">
               <template #prefix>
                 <Trash2 class="size-4" />
               </template>
@@ -168,7 +193,14 @@
 
 <script setup>
 import { computed, reactive, ref, watch, watchEffect } from 'vue'
-import { Button, FormLabel, call, createResource, request } from 'frappe-ui'
+import { Button, FormLabel, call, createResource, request, toast } from 'frappe-ui'
+import Plus from '~icons/lucide/plus'
+import Pencil from '~icons/lucide/pencil'
+import Archive from '~icons/lucide/archive'
+import RotateCcw from '~icons/lucide/rotate-ccw'
+import Trash2 from '~icons/lucide/trash-2'
+import X from '~icons/lucide/x'
+import SlidersHorizontal from '~icons/lucide/sliders-horizontal'
 import ResourceState from '@/components/ResourceState.vue'
 import CategoryPicker from '@/components/CategoryPicker.vue'
 import DependentPicker from '@/components/DependentPicker.vue'
@@ -182,19 +214,24 @@ const viewModes = [
 
 const activeOnly = ref(true)
 const filters = reactive({ category: null, dependent: null })
+const showFilters = ref(false)
 
 const hasFilters = computed(() => Boolean(filters.category || filters.dependent))
+const activeFilterCount = computed(
+  () => (filters.category ? 1 : 0) + (filters.dependent ? 1 : 0),
+)
 
 function clearFilters() {
   filters.category = null
   filters.dependent = null
-  reloadAll()
 }
 
 function setView(value) {
   activeOnly.value = value
   reloadAll()
 }
+
+watch(filters, () => reloadAll(), { deep: true })
 
 function budgetParams() {
   const params = { active_only: activeOnly.value ? 1 : 0 }
@@ -359,11 +396,7 @@ watch(
   { immediate: true },
 )
 
-const message = ref(null)
-
-function showMessage(text, type = 'success') {
-  message.value = { text, type }
-}
+const busy = ref(null)
 
 const formOpen = ref(false)
 const editingBudget = ref(null)
@@ -381,25 +414,51 @@ function openEdit(budget) {
 function onSaved(result) {
   reloadAll()
   const label = categoryName(result.category || editingBudget.value?.category)
-  showMessage(editingBudget.value ? `Budget for "${label}" updated.` : `Budget for "${label}" created.`)
+  toast.success(
+    editingBudget.value
+      ? `Budget for "${label}" updated.`
+      : `Budget for "${label}" created.`,
+  )
 }
 
 async function archive(budget) {
-  await call('expense_manager.api.budgets.archive_budget', {
-    budget: budget.name,
-    dependent: budget.dependent || null,
-  })
-  showMessage(`Budget for "${categoryName(budget.category)}" archived.`)
-  reloadAll()
+  busy.value = 'archive-' + budget.name
+  try {
+    const result = await call('expense_manager.api.budgets.archive_budget', {
+      budget: budget.name,
+      dependent: budget.dependent || null,
+    })
+    if (result && result.success === false) {
+      toast.error(result.message)
+    } else {
+      toast.success(`Budget for "${categoryName(budget.category)}" archived.`)
+      reloadAll()
+    }
+  } catch (e) {
+    toast.error(e.message || 'Could not archive the budget.')
+  } finally {
+    busy.value = null
+  }
 }
 
 async function restore(budget) {
-  await call('expense_manager.api.budgets.restore_budget', {
-    budget: budget.name,
-    dependent: budget.dependent || null,
-  })
-  showMessage(`Budget for "${categoryName(budget.category)}" restored.`)
-  reloadAll()
+  busy.value = 'restore-' + budget.name
+  try {
+    const result = await call('expense_manager.api.budgets.restore_budget', {
+      budget: budget.name,
+      dependent: budget.dependent || null,
+    })
+    if (result && result.success === false) {
+      toast.error(result.message)
+    } else {
+      toast.success(`Budget for "${categoryName(budget.category)}" restored.`)
+      reloadAll()
+    }
+  } catch (e) {
+    toast.error(e.message || 'Could not restore the budget.')
+  } finally {
+    busy.value = null
+  }
 }
 
 const confirmOpen = ref(false)
@@ -429,14 +488,14 @@ async function confirmDelete() {
       dependent: deleteTarget.value.dependent || null,
     })
     if (result && result.success === false) {
-      showMessage(result.message, 'error')
+      toast.error(result.message)
     } else {
-      showMessage('Budget deleted.')
+      toast.success('Budget deleted.')
       reloadAll()
     }
     confirmOpen.value = false
   } catch (e) {
-    showMessage(e.message || 'Could not delete the budget.', 'error')
+    toast.error(e.message || 'Could not delete the budget.')
     confirmOpen.value = false
   } finally {
     deleting.value = false
@@ -447,7 +506,7 @@ const inr = (value) =>
   new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
-    minimumFractionDigits: 2,
+    minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(value || 0)
 </script>

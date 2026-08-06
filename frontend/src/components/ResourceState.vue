@@ -1,11 +1,11 @@
 <template>
   <div>
     <div v-if="error" class="rounded-lg border border-outline-red-2 bg-surface-red-1 p-6">
-      <div class="flex items-center gap-2 text-ink-red-3">
+      <div class="flex items-center gap-2 text-ink-red-5">
         <span class="lucide-alert-circle size-4" />
         <p class="text-sm font-medium">Couldn't load {{ label }}</p>
       </div>
-      <p v-if="errorMessage" class="mt-1 pl-6 text-sm text-ink-red-2">{{ errorMessage }}</p>
+      <p v-if="errorMessage" class="mt-1 pl-6 text-sm text-ink-red-4">{{ errorMessage }}</p>
       <Button
         class="mt-4"
         variant="subtle"

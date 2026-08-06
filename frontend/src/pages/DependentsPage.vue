@@ -1,32 +1,32 @@
 <template>
   <div class="space-y-6">
-    <section class="flex flex-col gap-3 rounded-lg border border-outline-gray-1 bg-surface-white p-4 sm:flex-row sm:items-center sm:justify-between">
-      <div class="flex items-center gap-1 rounded-lg bg-surface-gray-2 p-1">
-        <button
-          v-for="mode in viewModes"
-          :key="mode.value"
-          type="button"
-          class="rounded-md px-3 py-1.5 text-sm transition-colors"
-          :class="view === mode.value
-            ? 'bg-surface-white font-medium text-ink-gray-9 shadow-sm'
-            : 'text-ink-gray-6 hover:text-ink-gray-8'"
-          @click="setView(mode.value)"
-        >
-          {{ mode.label }}
-        </button>
-      </div>
-      <div class="flex items-center gap-3">
-        <p v-if="message" class="text-sm font-medium" :class="message.type === 'error' ? 'text-ink-red-4' : 'text-ink-green-3'">
-          {{ message.text }}
-        </p>
+    <div class="flex items-center justify-between">
+      <p class="text-sm text-ink-gray-5">
+        {{ dependents.length }} {{ dependents.length === 1 ? 'dependent' : 'dependents' }}
+      </p>
+      <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1 rounded-lg bg-surface-gray-2 p-1">
+          <button
+            v-for="mode in viewModes"
+            :key="mode.value"
+            type="button"
+            class="rounded-md px-3 py-1.5 text-sm transition-colors"
+            :class="view === mode.value
+              ? 'bg-surface-white font-medium text-ink-gray-9 shadow-sm'
+              : 'text-ink-gray-6 hover:text-ink-gray-8'"
+            @click="setView(mode.value)"
+          >
+            {{ mode.label }}
+          </button>
+        </div>
         <Button variant="solid" size="sm" @click="openCreate">
           <template #prefix>
-            <Plus class="size-4 text-white" />
+            <span class="lucide-plus size-4 text-white" />
           </template>
           New dependent
         </Button>
       </div>
-    </section>
+    </div>
 
     <ResourceState :resource="list" label="your dependents">
       <template #skeleton>
@@ -82,7 +82,7 @@
                   size="sm"
                   title="Archive"
                   :loading="archiving === dep.name"
-                  @click="triggerArchive(dep)"
+                  @click="archiveDep(dep)"
                 >
                   <template #prefix>
                     <Archive class="size-4" />
@@ -94,7 +94,7 @@
                   size="sm"
                   title="Restore"
                   :loading="restoring === dep.name"
-                  @click="triggerRestore(dep)"
+                  @click="restoreDep(dep)"
                 >
                   <template #prefix>
                     <RotateCcw class="size-4" />
@@ -156,21 +156,20 @@
                 </div>
               </div>
 
-              <div v-if="balanceOf(dep.name)" class="mt-2 text-xs space-y-1">
+              <div v-if="balanceOf(dep.name)" class="mt-2 space-y-1 text-xs">
                 <div class="flex justify-between text-ink-gray-7">
                   <span>Period: {{ balanceOf(dep.name).allocation_period || 'Monthly' }}</span>
-                  <span class="font-medium" :class="balanceOf(dep.name).remaining_amount < 0 ? 'text-ink-red-4' : 'text-ink-gray-9'">
+                  <span class="font-medium" :class="balanceOf(dep.name).remaining_amount < 0 ? 'text-ink-red-5' : 'text-ink-gray-9'">
                     Remaining: {{ inr(balanceOf(dep.name).remaining_amount) }}
                   </span>
                 </div>
-                <div class="h-2.5 overflow-hidden rounded-full bg-gray-200 border border-gray-300">
+                <div class="h-2.5 overflow-hidden rounded-full bg-surface-gray-2">
                   <div
-                    class="h-full rounded-full transition-all"
-                    :class="balanceOf(dep.name).remaining_amount < 0 ? 'bg-red-600' : 'bg-blue-600'"
+                    class="h-full rounded-full bg-surface-blue-3 transition-all"
                     :style="{ width: `${Math.min(balancePct(dep.name), 100)}%` }"
                   />
                 </div>
-                <p class="text-[11px] text-ink-gray-5">
+                <p class="text-xs text-ink-gray-5">
                   Allocated: {{ inr(balanceOf(dep.name).allocated_amount) }} · Spent: {{ inr(balanceOf(dep.name).spent_amount) }}
                 </p>
               </div>
@@ -182,7 +181,7 @@
             <AllowedCategoriesSection :dependent="dep" />
           </div>
 
-          <div class="text-xs text-ink-gray-5 pt-2 border-t border-outline-gray-1 flex items-center justify-between">
+          <div class="flex items-center justify-between border-t border-outline-gray-1 pt-2 text-xs text-ink-gray-5">
             <span>Carry forward: {{ dep.allow_carry_forward ? 'Enabled' : 'Disabled' }}</span>
             <span>Created {{ formatDate(dep.creation) }}</span>
           </div>
@@ -212,7 +211,13 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
-import { Button, call, createResource, request } from 'frappe-ui'
+import { Button, call, createResource, request, toast } from 'frappe-ui'
+import Pencil from '~icons/lucide/pencil'
+import Archive from '~icons/lucide/archive'
+import RotateCcw from '~icons/lucide/rotate-ccw'
+import Trash2 from '~icons/lucide/trash-2'
+import RefreshCw from '~icons/lucide/refresh-cw'
+import Coins from '~icons/lucide/coins'
 import ResourceState from '@/components/ResourceState.vue'
 import DependentFormDialog from '@/components/DependentFormDialog.vue'
 import PocketMoneyFormDialog from '@/components/PocketMoneyFormDialog.vue'
@@ -250,11 +255,7 @@ async function fetchBalances() {
         url: '/api/method/expense_manager.api.pocket_money.get_balance',
         params: { dependent: dep.name },
       })
-      if (res.message && res.message.success !== false) {
-        balances[dep.name] = res.message
-      } else {
-        balances[dep.name] = null
-      }
+      balances[dep.name] = res.message && res.message.success !== false ? res.message : null
     } catch (e) {
       balances[dep.name] = null
     }
@@ -280,12 +281,6 @@ function balancePct(depName) {
   return Math.round(pct)
 }
 
-const message = ref(null)
-
-function showMessage(text, type = 'success') {
-  message.value = { text, type }
-}
-
 const formOpen = ref(false)
 const editingDep = ref(null)
 
@@ -301,7 +296,7 @@ function openEdit(dep) {
 
 function onSaved() {
   list.reload()
-  showMessage(editingDep.value ? 'Dependent updated.' : 'Dependent created.')
+  toast.success(editingDep.value ? 'Dependent updated.' : 'Dependent created.')
 }
 
 const pocketOpen = ref(false)
@@ -317,7 +312,7 @@ async function openPocketMoney(dep) {
 
 function onPocketMoneySaved() {
   fetchBalances()
-  showMessage('Pocket money allocation updated.')
+  toast.success('Pocket money allocation updated.')
 }
 
 const rollingOver = ref(null)
@@ -329,29 +324,58 @@ async function triggerRollover(dep) {
       dependent: dep.name,
     })
     if (result && result.success === false) {
-      showMessage(result.message, 'error')
+      toast.error(result.message)
     } else {
-      showMessage(`Pocket money rolled over for ${dep.dependent_name}.`)
+      toast.success(`Pocket money rolled over for ${dep.dependent_name}.`)
       list.reload()
       fetchBalances()
     }
   } catch (e) {
-    showMessage(e.message || 'Could not perform rollover.', 'error')
+    toast.error(e.message || 'Could not perform rollover.')
   } finally {
     rollingOver.value = null
   }
 }
 
+const archiving = ref(null)
+const restoring = ref(null)
+
 async function archiveDep(dep) {
-  await call('expense_manager.api.dependents.archive_dependent', { dependent: dep.name })
-  showMessage(`Dependent "${dep.dependent_name}" archived.`)
-  list.reload()
+  archiving.value = dep.name
+  try {
+    const result = await call('expense_manager.api.dependents.archive_dependent', {
+      dependent: dep.name,
+    })
+    if (result && result.success === false) {
+      toast.error(result.message)
+    } else {
+      toast.success(`Dependent "${dep.dependent_name}" archived.`)
+      list.reload()
+    }
+  } catch (e) {
+    toast.error(e.message || 'Could not archive the dependent.')
+  } finally {
+    archiving.value = null
+  }
 }
 
 async function restoreDep(dep) {
-  await call('expense_manager.api.dependents.restore_dependent', { dependent: dep.name })
-  showMessage(`Dependent "${dep.dependent_name}" restored.`)
-  list.reload()
+  restoring.value = dep.name
+  try {
+    const result = await call('expense_manager.api.dependents.restore_dependent', {
+      dependent: dep.name,
+    })
+    if (result && result.success === false) {
+      toast.error(result.message)
+    } else {
+      toast.success(`Dependent "${dep.dependent_name}" restored.`)
+      list.reload()
+    }
+  } catch (e) {
+    toast.error(e.message || 'Could not restore the dependent.')
+  } finally {
+    restoring.value = null
+  }
 }
 
 const confirmOpen = ref(false)
@@ -375,14 +399,14 @@ async function confirmDelete() {
       dependent: deleteTarget.value.name,
     })
     if (result && result.success === false) {
-      showMessage(result.message, 'error')
+      toast.error(result.message)
     } else {
-      showMessage(`Dependent "${deleteTarget.value.dependent_name}" deleted.`)
+      toast.success(`Dependent "${deleteTarget.value.dependent_name}" deleted.`)
       list.reload()
     }
     confirmOpen.value = false
   } catch (e) {
-    showMessage(e.message || 'Could not delete dependent.', 'error')
+    toast.error(e.message || 'Could not delete dependent.')
     confirmOpen.value = false
   } finally {
     deleting.value = false
@@ -402,7 +426,7 @@ const inr = (value) =>
   new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
-    minimumFractionDigits: 2,
+    minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(value || 0)
 </script>

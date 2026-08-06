@@ -1,16 +1,42 @@
 <template>
   <div class="space-y-6">
     <section class="rounded-lg border border-outline-gray-1 bg-surface-white p-4">
-      <div class="flex flex-wrap items-end gap-4 sm:gap-6">
-        <div class="w-48">
+      <div class="flex items-center justify-between gap-3">
+        <p class="text-sm text-ink-gray-5">
+          Report period: {{ periodLabel }}
+        </p>
+        <Button
+          variant="subtle"
+          size="sm"
+          :class="showFilters || hasCustomFilters ? 'bg-surface-gray-2' : ''"
+          @click="showFilters = !showFilters"
+        >
+          <template #prefix>
+            <SlidersHorizontal class="size-4" />
+          </template>
+          Filters
+          <span
+            v-if="activeFilterCount"
+            class="ml-1 rounded-full bg-surface-gray-3 px-1.5 text-xs font-medium text-ink-gray-7"
+          >
+            {{ activeFilterCount }}
+          </span>
+        </Button>
+      </div>
+
+      <section
+        v-if="showFilters || hasCustomFilters"
+        class="mt-3 flex flex-wrap items-end gap-4 border-t border-outline-gray-1 pt-3 sm:gap-6"
+      >
+        <div class="flex w-48 flex-col gap-1.5">
           <FormLabel label="Dependent" />
           <DependentPicker v-model="filters.dependent" placeholder="All dependents" />
         </div>
-        <div class="w-44">
+        <div class="flex w-44 flex-col gap-1.5">
           <FormLabel label="From" />
           <DatePicker v-model="filters.date_from" />
         </div>
-        <div class="w-44">
+        <div class="flex w-44 flex-col gap-1.5">
           <FormLabel label="To" />
           <DatePicker v-model="filters.date_to" />
         </div>
@@ -26,7 +52,7 @@
           </template>
           Reset
         </Button>
-      </div>
+      </section>
       <p class="mt-3 text-xs text-ink-gray-5">
         The spending trend covers the last 6 months; budget and pocket-money
         reports show the current state.
@@ -59,32 +85,30 @@
         </div>
 
         <div class="rounded-lg border border-outline-gray-1 bg-surface-white p-5">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <span class="grid size-8 place-items-center rounded-lg bg-surface-gray-2 text-ink-gray-6">
-                <BarChart3 class="size-4" />
-              </span>
-              <div>
-                <p class="text-sm font-medium text-ink-gray-9">Monthly spending trend</p>
-                <p class="text-xs text-ink-gray-5">Last 6 months breakdown</p>
-              </div>
+          <div class="flex items-center gap-2">
+            <span class="grid size-8 place-items-center rounded-lg bg-surface-gray-2 text-ink-gray-6">
+              <BarChart3 class="size-4" />
+            </span>
+            <div>
+              <p class="text-sm font-medium text-ink-gray-9">Monthly spending trend</p>
+              <p class="text-xs text-ink-gray-5">Last 6 months breakdown</p>
             </div>
           </div>
 
           <p v-if="trend.length === 0" class="mt-6 text-center text-sm text-ink-gray-5">
             No expenses in the last 6 months.
           </p>
-          <div v-else class="mt-6 flex items-end gap-3 sm:gap-6 border-b border-gray-200 pb-2">
+          <div v-else class="mt-6 flex items-end gap-3 border-b border-outline-gray-1 pb-2 sm:gap-6">
             <div
               v-for="row in trend"
               :key="row.month"
               class="flex min-w-0 flex-1 flex-col items-center gap-1.5"
             >
-              <p class="text-[11px] font-medium text-ink-gray-7">{{ inr(row.total_amount) }}</p>
-              <div class="flex h-36 w-full items-end justify-center rounded-md bg-gray-50/50 p-1">
+              <p class="text-xs font-medium text-ink-gray-7">{{ inr(row.total_amount) }}</p>
+              <div class="flex h-36 w-full items-end justify-center rounded-md bg-surface-gray-1 p-1">
                 <div
                   class="w-full max-w-14 rounded-t-md transition-all shadow-sm"
-                  :class="row.total_amount > 0 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-200'"
+                  :class="row.total_amount > 0 ? 'bg-surface-blue-3 hover:bg-surface-blue-4' : 'bg-surface-gray-3'"
                   :style="{ height: trendHeight(row) + '%' }"
                   :title="`${monthLabel(row.month)}: ${inr(row.total_amount)}`"
                 />
@@ -123,14 +147,14 @@
                   <p class="shrink-0 text-sm font-medium text-ink-gray-9">{{ inr(row.total_amount) }}</p>
                 </div>
                 <div class="mt-1 flex items-center gap-2">
-                  <div class="h-2.5 flex-1 overflow-hidden rounded-full bg-gray-200 border border-gray-300">
+                  <div class="h-2.5 flex-1 overflow-hidden rounded-full bg-surface-gray-2">
                     <div
                       class="h-full rounded-full transition-all"
-                      :class="row.percentage_of_total > 0 ? 'bg-blue-600' : 'bg-gray-300'"
+                      :class="row.percentage_of_total > 0 ? 'bg-surface-blue-3' : 'bg-surface-gray-3'"
                       :style="{ width: Math.min(row.percentage_of_total, 100) + '%' }"
                     />
                   </div>
-                  <p class="shrink-0 text-xs text-ink-gray-6 font-medium">
+                  <p class="shrink-0 text-xs font-medium text-ink-gray-6">
                     {{ row.expense_count }} {{ row.expense_count === 1 ? 'expense' : 'expenses' }}
                     · {{ row.percentage_of_total }}%
                   </p>
@@ -168,20 +192,20 @@
                   <p class="truncate text-sm font-medium text-ink-gray-9">{{ row.category_name }}</p>
                   <span
                     v-if="row.is_overspent"
-                    class="rounded bg-surface-red-1 px-1.5 py-0.5 text-xs font-medium text-ink-red-4"
+                    class="rounded bg-surface-red-1 px-1.5 py-0.5 text-xs font-medium text-ink-red-5"
                   >
                     Over budget
                   </span>
                 </div>
                 <div class="mt-1 flex items-center gap-2">
-                  <div class="h-2.5 flex-1 overflow-hidden rounded-full bg-gray-200 border border-gray-300">
+                  <div class="h-2.5 flex-1 overflow-hidden rounded-full bg-surface-gray-2">
                     <div
                       class="h-full rounded-full transition-all"
-                      :class="row.is_overspent ? 'bg-red-600' : 'bg-blue-600'"
+                      :class="row.is_overspent ? 'bg-surface-red-6' : 'bg-surface-blue-3'"
                       :style="{ width: Math.min(row.percentage, 100) + '%' }"
                     />
                   </div>
-                  <p class="shrink-0 text-xs" :class="row.is_overspent ? 'text-ink-red-4' : 'text-ink-gray-5'">
+                  <p class="shrink-0 text-xs" :class="row.is_overspent ? 'text-ink-red-5' : 'text-ink-gray-5'">
                     {{ inr(row.spent_amount) }} of {{ inr(row.allocated_amount) }}
                     · {{ inr(row.remaining_amount) }} left
                   </p>
@@ -223,7 +247,7 @@
               <p class="text-right text-ink-gray-9">{{ inr(row.allocated_amount) }}</p>
               <p class="text-right text-ink-gray-6">{{ inr(row.spent_amount) }}</p>
               <p class="text-right text-ink-gray-6">{{ inr(row.carry_forward) }}</p>
-              <p class="text-right font-medium" :class="row.remaining_amount < 0 ? 'text-ink-red-4' : 'text-ink-gray-9'">
+              <p class="text-right font-medium" :class="row.remaining_amount < 0 ? 'text-ink-red-5' : 'text-ink-gray-9'">
                 {{ inr(row.remaining_amount) }}
               </p>
               <p class="text-right text-ink-green-3">{{ inr(row.total_savings) }}</p>
@@ -236,8 +260,14 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch, watchEffect } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch, watchEffect } from 'vue'
 import { Button, DatePicker, FormLabel, request } from 'frappe-ui'
+import BarChart3 from '~icons/lucide/bar-chart-3'
+import PieChart from '~icons/lucide/pie-chart'
+import Wallet from '~icons/lucide/wallet'
+import Coins from '~icons/lucide/coins'
+import X from '~icons/lucide/x'
+import SlidersHorizontal from '~icons/lucide/sliders-horizontal'
 import ResourceState from '@/components/ResourceState.vue'
 import DependentPicker from '@/components/DependentPicker.vue'
 
@@ -260,6 +290,15 @@ const hasCustomFilters = computed(
     filters.date_from !== defaultFrom ||
     filters.date_to !== defaultTo,
 )
+
+const activeFilterCount = computed(
+  () =>
+    (filters.dependent ? 1 : 0) +
+    (filters.date_from !== defaultFrom ? 1 : 0) +
+    (filters.date_to !== defaultTo ? 1 : 0),
+)
+
+const showFilters = ref(false)
 
 function clearFilters() {
   filters.dependent = null
@@ -334,6 +373,16 @@ watch(
   { immediate: true },
 )
 
+function reloadIfVisible() {
+  if (document.visibilityState === 'visible') reload()
+}
+document.addEventListener('visibilitychange', reloadIfVisible)
+window.addEventListener('focus', reloadIfVisible)
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', reloadIfVisible)
+  window.removeEventListener('focus', reloadIfVisible)
+})
+
 const combined = reactive({ data: null, error: null, loading: true, reload })
 
 watchEffect(() => {
@@ -372,15 +421,7 @@ const inr = (value) =>
   new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
-    minimumFractionDigits: 2,
+    minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(value || 0)
-
-const compactInr = (value) =>
-  new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    notation: 'compact',
-    maximumFractionDigits: 1,
-  }).format(Number(value) || 0)
 </script>

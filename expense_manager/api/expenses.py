@@ -61,6 +61,9 @@ def create_expense(
         )
         if warning:
             response["warning"] = warning
+        overspend = _overspend_info(user, doc.get("category"), dependent=doc.get("dependent"))
+        if overspend:
+            response["overspend"] = overspend
         return response
     except ExpenseManagerError as exc:
         return {"success": False, "message": str(exc)}
@@ -106,7 +109,11 @@ def update_expense(
     try:
         doc = ExpenseService.update_expense(user, expense, **kwargs).as_dict()
         lookup = _category_lookup(user)
-        return _enrich_expense(doc, lookup)
+        response = _enrich_expense(doc, lookup)
+        overspend = _overspend_info(user, doc.get("category"), dependent=doc.get("dependent"))
+        if overspend:
+            response["overspend"] = overspend
+        return response
     except ExpenseManagerError as exc:
         return {"success": False, "message": str(exc)}
 
@@ -134,6 +141,9 @@ def create_expense_from_text(text, dependent=None):
         )
         if warning:
             response["warning"] = warning
+        overspend = _overspend_info(user, doc.get("category"), dependent=doc.get("dependent"))
+        if overspend:
+            response["overspend"] = overspend
         return response
     except (ExpenseManagerError, AIError) as exc:
         return {"success": False, "message": str(exc)}
@@ -155,6 +165,30 @@ def delete_expense(expense):
         return {"success": False, "message": str(exc)}
 
 
+def _overspend_info(owner_user: str, category: str, dependent=None) -> dict | None:
+	"""Structured overspend payload for expense create/update responses.
+
+	Returns None when the category has no active budget or isn't over it.
+	The frontend uses this to surface a dismissible overspend banner after
+	a create/edit/quick-add, mirroring the text warning above.
+	"""
+	try:
+		usage = BudgetService.get_budget_usage(owner_user, category, dependent=dependent)
+		if usage is None or usage.get("is_overspent") is not True:
+			return None
+		info = CategoryService.get_category(owner_user, category)
+		return {
+			"category": category,
+			"category_name": info.category_name,
+			"allocated_amount": usage.get("allocated_amount"),
+			"spent_amount": usage.get("spent_amount"),
+			"remaining_amount": usage.get("remaining_amount"),
+			"pct_used": usage.get("pct_used"),
+		}
+	except ExpenseManagerError:
+		return None
+
+
 def _category_lookup(owner_user: str) -> dict[str, dict]:
 	cats = CategoryService.list_categories(owner_user)
 	return {c["name"]: {"category_name": c["category_name"], "icon": c.get("icon", "")} for c in cats}
@@ -168,8 +202,9 @@ def _enrich_expense(expense: dict, lookup: dict[str, dict]) -> dict:
 	return expense
 
 
-def _enrich_expenses(expenses: list[dict], lookup: dict[str, dict]) -> list[dict]:
-	return [_enrich_expense(e, lookup) for e in expenses]
+def _enrich_expenses(expenses: list[dict], lookup: dict[str, dict], user: str) -> list[dict]:
+	rows = [_enrich_expense(e, lookup) for e in expenses]
+	return ExpenseService.attach_dependent_names(rows, user)
 
 
 @frappe.whitelist(methods=["GET"])
@@ -185,7 +220,7 @@ def list_expenses(dependent=None, category=None, date_from=None, date_to=None, l
 			limit=cint(limit) if limit else None,
 		)
 		lookup = _category_lookup(user)
-		return _enrich_expenses(data, lookup)
+		return _enrich_expenses(data, lookup, user)
 	except ExpenseManagerError as exc:
 		return {"success": False, "message": str(exc)}
 
@@ -196,7 +231,7 @@ def get_recent_expenses(dependent=None, limit=10):
 	try:
 		data = ExpenseService.get_recent_expenses(user, dependent=dependent, limit=cint(limit))
 		lookup = _category_lookup(user)
-		return _enrich_expenses(data, lookup)
+		return _enrich_expenses(data, lookup, user)
 	except ExpenseManagerError as exc:
 		return {"success": False, "message": str(exc)}
 
@@ -207,7 +242,7 @@ def get_expenses_by_category(category, dependent=None):
 	try:
 		data = ExpenseService.get_expenses_by_category(user, category, dependent=dependent)
 		lookup = _category_lookup(user)
-		return _enrich_expenses(data, lookup)
+		return _enrich_expenses(data, lookup, user)
 	except ExpenseManagerError as exc:
 		return {"success": False, "message": str(exc)}
 
@@ -223,6 +258,6 @@ def get_expenses_by_date_range(date_from, date_to, dependent=None):
 			dependent=dependent,
 		)
 		lookup = _category_lookup(user)
-		return _enrich_expenses(data, lookup)
+		return _enrich_expenses(data, lookup, user)
 	except ExpenseManagerError as exc:
 		return {"success": False, "message": str(exc)}
