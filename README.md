@@ -80,6 +80,31 @@ Expenso follows a decoupled, service-oriented architecture:
 - **Guardian Flow**: The Vue 3 SPA interacts with Frappe through whitelisted REST endpoints under `expense_manager.api.*`, authenticated via Frappe session cookies and CSRF tokens.
 - **AI Expense Parsing Flow**: Voice notes received by the bot are downloaded and dispatched to Sarvam AI's speech-to-text API. The transcribed text (or direct text message) is passed to a Groq LLM adapter with the user's available categories. The LLM extracts the amount, matches the category, parses relative dates, and rejects non-expense transactions (e.g. refunds or income) before writing to the database.
 
+### Telegram Bot Message-Handling Flow
+
+```mermaid
+flowchart TD
+    A["User sends a message (text or voice note) to @expense_managerbot"] --> B["Telegram webhook POST hits /api/method/expense_manager.telegram.webhook.handle"]
+    B --> C{"Secret token verified?<br/>X-Telegram-Bot-Api-Secret-Token header matches configured secret"}
+    C -- "invalid" --> D["Reject request (PermissionError), logged, not processed"]
+    C -- "valid" --> E["Validate update_id, dedupe via Redis,<br/>enqueue background job"]
+    E --> F{"Router: what was sent?<br/>message.voice vs message.text"}
+    F -- "voice note" --> H["download_voice_file(file_id)"]
+    F -- "slash command" --> I["Command handler<br/>(/balance, /budgets, /report, /link, ...)"]
+    F -- "free text" --> J["Free-text handler"]
+    I --> Z["Reply text sent via Telegram API"]
+    H --> S["Sarvam AI speech-to-text<br/>(ai/speech_to_text.py)"]
+    S --> K["Transcribed text"]
+    J --> K
+    K --> M["Groq LLM adapter fed the user's available categories<br/>(ai/ai_parser.py)"]
+    M --> N{"Valid expense?<br/>amount + category match + relative date parsed,<br/>non-expense (refund/income) rejected"}
+    N -- "refund / income" --> O["Rejected with explanatory message"]
+    N -- "valid" --> P["Expense written to Expense DocType<br/>(services/expense_service.py)"]
+    P --> Q["Budget refreshed, overspend warning computed"]
+    Q --> R["Bot sends confirmation reply via Telegram API"]
+    R --> A
+```
+
 ---
 
 ## 4. Setup & Running Locally

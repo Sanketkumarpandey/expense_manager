@@ -44,12 +44,12 @@ Only create PROJECT_ANALYSIS.md.
 ### Phase 2 — Telegram Architecture Design (docs only)
 
 ```
-Using PROJECT_ANALYSIS.md and docs/architecture.md, design the Telegram
+Using README.md and docs/architecture.md, design the Telegram
 architecture in more implementation-level detail than the existing docs.
 
 Do not implement anything.
 
-Create telegram_architecture.md including:
+Create docs/telegram-architecture.md including:
 - Folder structure
 - Webhook flow
 - Authentication
@@ -69,7 +69,7 @@ Create telegram_architecture.md including:
 
 ```
 Implement only the folder structure described in docs/architecture.md and
-telegram_architecture.md. Create empty modules with docstrings only — no
+docs/telegram-architecture.md. Create empty modules with docstrings only — no
 logic.
 
 Create:

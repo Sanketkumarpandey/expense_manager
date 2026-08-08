@@ -10,7 +10,8 @@ should behave inside this repository. Read this file, and every file in
    phase by phase. Each phase ends in a compiling, testable state.
 2. **Never invent a DocType, field, or API route** that is not described in
    `docs/doctypes.md` or `docs/api.md`. If something is missing, stop and add
-   a note to `OPEN_QUESTIONS.md` instead of guessing.
+   a note to the "Known Limitations & Deferred Work" section of `README.md`
+   instead of guessing.
 3. **Never hardcode secrets** (bot tokens, API keys, DB passwords). Always read
    from Frappe site config (`site_config.json`) or environment variables —
    see `docs/environment.md`.
@@ -26,7 +27,8 @@ should behave inside this repository. Read this file, and every file in
    for anything that happens outside an HTTP request/response cycle
    (webhooks, background jobs, AI calls).
 8. **Ask instead of assuming.** If a requirement is ambiguous, write the
-   question into `OPEN_QUESTIONS.md` at the repo root and pick the most
+   question into the "Known Limitations & Deferred Work" section of `README.md`
+   and pick the most
    conservative reasonable default so work isn't blocked.
 
 ## 1. Repository Map
