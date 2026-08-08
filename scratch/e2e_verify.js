@@ -185,16 +185,33 @@ async function run() {
     }
 
     // List rows (Categories/Budgets pages) are the outer <div class="...py-3">.
-    // Find the row containing `rowText` and click its button with `title`.
+    // Find the row containing `rowText`, open its 3-dot menu (title="Row actions")
+    // and click the menu item whose label matches `title`.
     async function clickRowButton(rowText, title) {
-      return evalCode(`
+      const opened = await evalCode(`
         (() => {
           const rows = [...document.querySelectorAll('div[class*="py-3"]')];
           const row = rows.find(r => (r.innerText || '').includes(${JSON.stringify(rowText)}));
           if (!row) return false;
-          const btn = row.querySelector('button[title=' + ${JSON.stringify(JSON.stringify(title))} + ']');
+          const btn = row.querySelector('button[title="Row actions"]');
           if (!btn) return false;
-          btn.click();
+          // reka-ui dropdowns open on pointerdown, so dispatch the full
+          // pointer -> click sequence a real user would produce.
+          const opts = { bubbles: true, cancelable: true, button: 0, ctrlKey: false };
+          btn.dispatchEvent(new PointerEvent('pointerdown', opts));
+          btn.dispatchEvent(new PointerEvent('pointerup', opts));
+          btn.dispatchEvent(new MouseEvent('click', opts));
+          return true;
+        })()
+      `)
+      if (!opened) return false
+      await sleep(450)
+      return evalCode(`
+        (() => {
+          const items = [...document.querySelectorAll('[role="menuitem"]')];
+          const item = items.find(b => (b.innerText || '').trim() === ${JSON.stringify(title)});
+          if (!item) return false;
+          item.click();
           return true;
         })()
       `)
@@ -365,7 +382,7 @@ async function run() {
     await clickRowButton('E2E Cats X', 'Archive')
     report('Category archived', await waitForText('Category "E2E Cats X" archived.'))
     await clickVisibleButton('All')
-    await waitForText('E2E Cats X')
+    await waitForText('Archived')
     report('Archived category visible in "All" view with badge', await (async () => {
       const hasRow = await rowExists('E2E Cats X')
       const hasBadge = (await bodyText()).includes('Archived')
@@ -682,6 +699,377 @@ async function run() {
     )
 
     // ---------------------------------------------------------------
+    console.log('\n--- SCENARIO 7: Dependents Total Savings + Reports charts + no-filters regression ---')
+
+    // A deterministic dependent with a running allocation (₹1,500, ₹500 spent)
+    // proves the Total Savings card shows allocation − spent, and the Reports
+    // pocket-money summary + charts react to the dependent filter.
+    const svDep = await apiCall('expense_manager.api.dependents.create_dependent', {
+      dependent_name: 'E2E Savings Jr', relationship: 'Son', default_monthly_allowance: 1500, allow_carry_forward: 1,
+    })
+    let svDepId = svDep && svDep.message && svDep.message.name
+    if (!svDepId) {
+      const deps = await apiCall('expense_manager.api.dependents.list_dependents', { active_only: 0 }, false)
+      const existing = ((deps && deps.message) || []).find((d) => d.dependent_name === 'E2E Savings Jr')
+      svDepId = existing && existing.name
+    }
+    report('Created dedicated dependent for savings/charts checks', Boolean(svDepId), svDepId || JSON.stringify(svDep?.message))
+
+    const svStaleExpenses = await apiCall('expense_manager.api.expenses.list_expenses', { dependent: svDepId }, false)
+    for (const e of (svStaleExpenses && svStaleExpenses.message) || []) {
+      await apiCall('expense_manager.api.expenses.delete_expense', { expense: e.name })
+    }
+    const svStaleAllocs = await apiCall('expense_manager.api.pocket_money.list_allocations', { dependent: svDepId, active_only: 0 }, false)
+    for (const a of (svStaleAllocs && svStaleAllocs.message) || []) {
+      await apiCall('expense_manager.api.pocket_money.delete_allocation', { allocation: a.name })
+    }
+
+    const svAlloc = await apiCall('expense_manager.api.pocket_money.create_allocation', {
+      dependent: svDepId, allocated_amount: 1500, allocation_period: 'Monthly', carry_forward_amount: 0,
+    })
+    const svAllocId = svAlloc && svAlloc.message && svAlloc.message.name
+    report('Created Monthly ₹1,500 allocation for savings dependent', Boolean(svAllocId), svAllocId || JSON.stringify(svAlloc?.message))
+
+    // Give the fixture dependent an active allocation too, so the pocket-money
+    // summary shows two rows BEFORE the dependent filter narrows it to one —
+    // otherwise the "narrowed" and "all dependents after Reset" checks are
+    // vacuous (Alex Junior has no active allocation by this point).
+    const alexAlloc = await apiCall('expense_manager.api.pocket_money.create_allocation', {
+      dependent: ALEX_ID, allocated_amount: 1000, allocation_period: 'Monthly', carry_forward_amount: 0,
+    })
+    const alexAllocId = alexAlloc && alexAlloc.message && alexAlloc.message.name
+    report('Created Monthly ₹1,000 allocation for Alex Junior (filter contrast row)', Boolean(alexAllocId), alexAllocId || JSON.stringify(alexAlloc?.message))
+
+    const svExp1 = await apiCall('expense_manager.api.expenses.create_expense', {
+      category: FOOD_ID, amount: 500, expense_date: todayIso(), dependent: svDepId,
+    })
+    const svExp1Name = svExp1 && svExp1.message && svExp1.message.name
+    report('Spent ₹500 for savings dependent today', Boolean(svExp1Name), svExp1Name || JSON.stringify(svExp1?.message))
+
+    const svListDeps = await apiCall('expense_manager.api.dependents.list_dependents', { active_only: 0 }, false)
+    const svListRow = ((svListDeps && svListDeps.message) || []).find((d) => d.name === svDepId)
+    report(
+      'list_dependents returns total_savings field',
+      Boolean(svListRow && 'total_savings' in svListRow),
+      JSON.stringify(svListRow ? { total_savings: svListRow.total_savings } : null),
+    )
+
+    const svPmSum = await apiCall('expense_manager.api.reports.get_pocket_money_summary', { dependent: svDepId }, false)
+    const svPmRow = ((svPmSum && svPmSum.message) || []).find((r) => r.dependent === svDepId)
+    report(
+      'PM summary → spent 500, remaining 1000, savings 1000',
+      Boolean(svPmRow && svPmRow.spent_amount === 500 && svPmRow.remaining_amount === 1000 && svPmRow.total_savings === 1000),
+      JSON.stringify(svPmRow || svPmSum?.message || svPmSum),
+    )
+
+    // Dependents page: the Total Savings stat must show the running
+    // allocation's remaining (allocation − spent), not the ₹0 ledger.
+    // Leave the page first: scenario 5 leaves the app on /dependents, and a
+    // same-route pushState + popstate does NOT remount the route component —
+    // so without the detour the page would show stale dependents.
+    await navigate('/dashboard')
+    await navigate('/dependents')
+    await waitForText('E2E Savings Jr')
+    const svCardOk = await waitFor(`
+        (() => {
+          const card = [...document.querySelectorAll('div[class*="bg-surface-white"]')].find(el =>
+            el.getBoundingClientRect().height > 0 &&
+            (el.innerText || '').includes('E2E Savings Jr') &&
+            (el.innerText || '').includes('Total Savings'));
+          return Boolean(card && /₹1[,.]?000/.test(card.innerText));
+        })()
+      `, 15000)
+    let svCardText = ''
+    if (!svCardOk) {
+      svCardText = await evalCode(`
+        (() => {
+          const card = [...document.querySelectorAll('div[class*="bg-surface-white"]')].find(el =>
+            el.getBoundingClientRect().height > 0 && (el.innerText || '').includes('E2E Savings Jr'));
+          return card ? card.innerText.replace(/\\n+/g, ' | ') : 'CARD NOT FOUND';
+        })()
+      `)
+    }
+    report(
+      'Dependents card shows ₹1,000 Total Savings (allocation − spent)',
+      svCardOk,
+      svCardText || '',
+    )
+
+    // Reports page: line chart + bar chart render; filter panel narrows the
+    // pocket-money summary; per-dependent trend toggle works.
+    await navigate('/reports')
+    await waitForText('Monthly spending trend')
+
+    console.log('DEBUG-REPORTS-TEXT:', JSON.stringify(await evalCode(`document.body.innerText.slice(0, 900)`)))
+    console.log('DEBUG-REPORTS-HTML:', JSON.stringify(await evalCode(`document.body.querySelector('#app') ? document.body.querySelector('#app').innerHTML.slice(0, 600) : 'no #app'`)))
+    console.log('DEBUG-REPORTS-URL:', JSON.stringify(await evalCode(`window.location.pathname`)))
+
+    report('Trend line chart canvas rendered', await waitFor(`
+      (() => {
+        const section = [...document.querySelectorAll('div[class*="rounded-lg"]')].find(el =>
+          (el.innerText || '').includes('Monthly spending trend'));
+        return Boolean(section && section.querySelector('canvas'));
+      })()
+    `, 12000))
+    report('Category breakdown bar chart canvas rendered', await waitFor(`
+      (() => {
+        const section = [...document.querySelectorAll('div[class*="rounded-lg"]')].find(el =>
+          (el.innerText || '').includes('Category breakdown'));
+        return Boolean(section && section.querySelector('canvas'));
+      })()
+    `, 12000))
+
+    report('PM summary shows savings dependent row', await waitForText('E2E Savings Jr', 12000))
+
+    report('Switched trend to "Per dependent"', await clickVisibleButton('Per dependent'))
+    await sleep(1200)
+    report(
+      'Per-dependent mode shows legend hint + chart',
+      await waitForText('Click a name in the legend to show or hide that dependent\'s line.', 12000),
+    )
+    report('Per-dependent line chart canvas still rendered', await waitFor(`
+      (() => {
+        const section = [...document.querySelectorAll('div[class*="rounded-lg"]')].find(el =>
+          (el.innerText || '').includes('Monthly spending trend'));
+        return Boolean(section && section.querySelector('canvas'));
+      })()
+    `, 12000))
+    report('Switched trend back to "All"', await clickVisibleButton('All'))
+    await sleep(1200)
+
+    // Filters removed from every page (decision: no filter controls needed).
+    // Assert the old filter surfaces are gone: no filter-toggle, no
+    // All dependents/All categories pickers, no Filters/Clear buttons.
+    await navigate('/reports')
+    await waitForText('Monthly spending trend')
+    report(
+      'Reports page has no filter toggle',
+      await evalCode(`(() => !document.querySelector('[data-testid="filter-toggle"]'))()`),
+    )
+    report(
+      'Reports page has no dependent/category filter inputs',
+      await evalCode(`
+        (() => ![...document.querySelectorAll('input')].some(i =>
+          ['All dependents', 'All categories'].includes(i.placeholder || '')))()
+      `),
+    )
+    report(
+      'Reports page has no Clear all button',
+      await evalCode(`
+        (() => ![...document.querySelectorAll('button')].some(b =>
+          (b.innerText || '').trim() === 'Clear all'))()
+      `),
+    )
+
+    await navigate('/expenses')
+    await waitForText('Bills')
+    report(
+      'Expenses page has no filter toggle',
+      await evalCode(`(() => !document.querySelector('[data-testid="filter-toggle"]'))()`),
+    )
+    report(
+      'Expenses page has no dependent/category filter inputs',
+      await evalCode(`
+        (() => ![...document.querySelectorAll('input')].some(i =>
+          ['All dependents', 'All categories'].includes(i.placeholder || '')))()
+      `),
+    )
+
+    await navigate('/budgets')
+    await waitForText('New budget')
+    report(
+      'Budgets page has no Filters button',
+      await evalCode(`
+        (() => ![...document.querySelectorAll('button')].some(b =>
+          (b.innerText || '').trim().startsWith('Filters')) )()
+      `),
+    )
+    report(
+      'Budgets page has no All categories/All dependents filter inputs',
+      await evalCode(`
+        (() => ![...document.querySelectorAll('input')].some(i =>
+          ['All categories', 'All dependents'].includes(i.placeholder || '')))()
+      `),
+    )
+
+    await navigate('/dashboard')
+    await waitForText('Recent expenses')
+    report(
+      'Dashboard has no category quick-access section',
+      await evalCode(`
+        (() => !document.body.innerText.includes('Quick access to category expenses'))()
+      `),
+    )
+    report(
+      'Dashboard has no filter toggle',
+      await evalCode(`(() => !document.querySelector('[data-testid="filter-toggle"]'))()`),
+    )
+    await navigate('/reports')
+
+    // Pocket-money summary reactivity: a new expense today must move Spent.
+    const svExp2 = await apiCall('expense_manager.api.expenses.create_expense', {
+      category: FOOD_ID, amount: 200, expense_date: todayIso(), dependent: svDepId,
+    })
+    const svExp2Name = svExp2 && svExp2.message && svExp2.message.name
+    report('Added ₹200 more expense for savings dependent', Boolean(svExp2Name), svExp2Name || JSON.stringify(svExp2?.message))
+    await navigate('/dashboard')
+    await navigate('/reports')
+    await waitForText('Monthly spending trend')
+    report(
+      'PM summary Spent updated to ₹700 after new expense',
+      await waitFor(`
+        (() => {
+          const section = [...document.querySelectorAll('div[class*="rounded-lg"]')].find(el =>
+            el.getBoundingClientRect().height > 0 &&
+            (el.innerText || '').includes('Pocket money summary'));
+          return Boolean(section && /₹700/.test(section.innerText));
+        })()
+      `, 15000),
+    )
+
+    // ---------------------------------------------------------------
+    console.log('\n--- SCENARIO 8: Quick Expense Hover Card (dashboard) ---')
+
+    // The Quick Add Expense hover card is a click-to-open popover with a
+    // single input. Submit goes through the existing whitelisted endpoint;
+    // the popover must close + toast on success, or show an inline error and
+    // stay open on failure. Outcome is branched because the test site's AI
+    // config decides success vs. the friendly configuration error.
+    await navigate('/dashboard')
+    await waitForText('Recent expenses')
+
+    report(
+      'Quick Add Expense trigger button visible',
+      await waitFor(`
+        (() => {
+          const btn = document.querySelector('[data-testid="quick-add-trigger"]');
+          return Boolean(btn && btn.getBoundingClientRect().height > 0);
+        })()
+      `, 10000),
+    )
+    report(
+      'Clicked Quick Add Expense trigger',
+      await evalCode(`
+        (() => {
+          const btn = document.querySelector('[data-testid="quick-add-trigger"]');
+          if (!btn) return false;
+          btn.click();
+          return true;
+        })()
+      `),
+    )
+    await sleep(500)
+    report(
+      'Popover opens with input present',
+      await waitFor(`
+        (() => {
+          const input = document.querySelector('[data-testid="quick-add-input"]');
+          return Boolean(input && input.getBoundingClientRect().height > 0);
+        })()
+      `, 8000),
+    )
+    report(
+      'Input is autofocused on open',
+      await evalCode(`
+        (() => document.activeElement &&
+             document.activeElement.getAttribute('data-testid') === 'quick-add-input')()
+      `),
+    )
+    report('Cancel closes popover', await clickVisibleButton('Cancel'))
+    await sleep(400)
+    report(
+      'Popover closed after Cancel',
+      await evalCode(`(() => !document.querySelector('[data-testid="quick-add-input"]'))()`),
+    )
+
+    // Reopen, type a natural-language expense, submit via Enter.
+    await evalCode(`
+      (() => {
+        document.querySelector('[data-testid="quick-add-trigger"]').click();
+        return true;
+      })()
+    `)
+    await sleep(400)
+    report(
+      'Typed expense text into popover input',
+      await setInputValue('[data-testid="quick-add-input"]', '100 on groceries'),
+    )
+    await sleep(200)
+    report(
+      'Submitted via Enter key',
+      await evalCode(`
+        (() => {
+          const input = document.querySelector('[data-testid="quick-add-input"]');
+          input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+          return true;
+        })()
+      `),
+    )
+
+    // Resolve as soon as either outcome lands (inline error → stayed open,
+    // or popover closed → success), so the success toast is still visible.
+    const qaResolved = await waitFor(`
+      (() => {
+        const errorEl = document.querySelector('[data-testid="quick-add-error"]');
+        const inputEl = document.querySelector('[data-testid="quick-add-input"]');
+        return Boolean(errorEl) || !Boolean(inputEl);
+      })()
+    `, 15000)
+    report('Quick-add submit resolved (error or success)', qaResolved)
+    const qaErrorSeen = await evalCode(`
+      (() => Boolean(document.querySelector('[data-testid="quick-add-error"]')))()
+    `)
+    if (qaErrorSeen) {
+      const qaErrText = await evalCode(`
+        (() => {
+          const el = document.querySelector('[data-testid="quick-add-error"]');
+          return el ? el.innerText.trim() : '';
+        })()
+      `)
+      report('Inline error shown on failure', qaErrText.length > 0, qaErrText)
+      report(
+        'Friendly configuration message surfaced when AI keys absent',
+        qaErrText.includes("isn't set up yet"),
+        qaErrText,
+      )
+      report(
+        'Popover stays open on failure',
+        await evalCode(`(() => Boolean(document.querySelector('[data-testid="quick-add-input"]')))()`),
+      )
+      report(
+        'Input retains typed text on failure',
+        await evalCode(`
+          (() => document.querySelector('[data-testid="quick-add-input"]')?.value === '100 on groceries')()
+        `),
+      )
+      report('Closed popover after failed submit', await clickVisibleButton('Cancel'))
+    } else {
+      // Success path: popover closes, toast fires, dashboard reloads.
+      await sleep(300)
+      report(
+        'Popover closed on success',
+        await evalCode(`(() => !document.querySelector('[data-testid="quick-add-input"]'))()`),
+      )
+      report(
+        'Success toast appeared',
+        await waitFor(`document.body.innerText.includes('Added ')`, 10000),
+      )
+      await sleep(1200)
+      report(
+        'Recent expenses updated after quick add',
+        await waitFor(`document.body.innerText.includes('groceries')`, 12000),
+      )
+      // Best-effort cleanup of the parsed expense (mock parse sets the
+      // description to the typed text).
+      const qaList = await apiCall('expense_manager.api.expenses.list_expenses', {}, false)
+      const qaMine = ((qaList && qaList.message) || []).find((e) => e.description === '100 on groceries')
+      if (qaMine) {
+        await apiCall('expense_manager.api.expenses.delete_expense', { expense: qaMine.name })
+      }
+      report('Cleaned up quick-added expense', Boolean(qaMine), qaMine ? qaMine.name : 'none found')
+    }
+
+    // ---------------------------------------------------------------
     console.log('\n--- CLEANUP ---')
 
     // Remove seeded expenses so fixture budget stays consistent (refreshed in shell after).
@@ -761,6 +1149,26 @@ async function run() {
     if (pmDepId) {
       const r = await apiCall('expense_manager.api.dependents.delete_dependent', { dependent: pmDepId })
       cleanups.push([`PM lifecycle dependent ${pmDepId}`, Boolean(r && r.message && r.message.success !== false)])
+    }
+
+    // - Scenario 7: savings-dependent expenses, allocation, dependent.
+    for (const svName of [svExp2Name, svExp1Name]) {
+      if (svName) {
+        const r = await apiCall('expense_manager.api.expenses.delete_expense', { expense: svName })
+        cleanups.push([`Savings expense ${svName}`, Boolean(r && r.message && r.message.success !== false)])
+      }
+    }
+    if (svAllocId) {
+      const r = await apiCall('expense_manager.api.pocket_money.delete_allocation', { allocation: svAllocId })
+      cleanups.push([`Savings allocation ${svAllocId}`, Boolean(r && r.message && r.message.success !== false)])
+    }
+    if (alexAllocId) {
+      const r = await apiCall('expense_manager.api.pocket_money.delete_allocation', { allocation: alexAllocId })
+      cleanups.push([`Alex allocation ${alexAllocId}`, Boolean(r && r.message && r.message.success !== false)])
+    }
+    if (svDepId) {
+      const r = await apiCall('expense_manager.api.dependents.delete_dependent', { dependent: svDepId })
+      cleanups.push([`Savings dependent ${svDepId}`, Boolean(r && r.message && r.message.success !== false)])
     }
 
     for (const [label, ok] of cleanups) {

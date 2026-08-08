@@ -146,6 +146,12 @@ class TestListDependents(ServiceTestCase):
             result = DependentService.list_dependents(SAMPLE_USER)
             self.assertEqual(len(result), 1)
 
+    def test_list_includes_total_savings_field(self):
+        with patch.object(frappe, "get_all", return_value=[]) as mock_get:
+            DependentService.list_dependents(SAMPLE_USER)
+            fields = mock_get.call_args[1]["fields"]
+            self.assertIn("total_savings", fields)
+
     def test_list_active_only(self):
         with patch.object(frappe, "get_all", return_value=[]) as mock_get:
             DependentService.list_dependents(SAMPLE_USER, active_only=True)

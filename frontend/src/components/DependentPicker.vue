@@ -4,9 +4,10 @@
       <Combobox
         v-model="model"
         :options="options"
-        :loading="resource.loading"
+        :loading="dependentsResource.loading"
         :placeholder="placeholder"
         trigger="input"
+        variant="outline"
       />
     </div>
     <Button
@@ -24,8 +25,9 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { Button, Combobox, createResource } from 'frappe-ui'
+import { computed, onMounted } from 'vue'
+import { Button, Combobox } from 'frappe-ui'
+import { dependentsResource } from '@/data/catalog'
 
 const props = defineProps({
   modelValue: { type: String, default: null },
@@ -39,18 +41,15 @@ const model = computed({
   set: (value) => emit('update:modelValue', value),
 })
 
-const resource = createResource({
-  url: 'expense_manager.api.dependents.list_dependents',
-  method: 'GET',
-  auto: true,
-  params: { active_only: 1 },
-})
-
 const options = computed(() => {
-  const deps = resource.data || []
+  const deps = dependentsResource.data || []
   return deps.map((dependent) => ({
     label: dependent.dependent_name,
     value: dependent.name,
   }))
+})
+
+onMounted(() => {
+  dependentsResource.reload()
 })
 </script>

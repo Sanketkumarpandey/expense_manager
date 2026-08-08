@@ -12,14 +12,18 @@ declare module 'vue' {
     BudgetFormDialog: typeof import('./src/components/BudgetFormDialog.vue')['default']
     CategoryFormDialog: typeof import('./src/components/CategoryFormDialog.vue')['default']
     CategoryPicker: typeof import('./src/components/CategoryPicker.vue')['default']
+    ChartBox: typeof import('./src/components/ChartBox.vue')['default']
     ConfirmDialog: typeof import('./src/components/ConfirmDialog.vue')['default']
     DependentFormDialog: typeof import('./src/components/DependentFormDialog.vue')['default']
     DependentPicker: typeof import('./src/components/DependentPicker.vue')['default']
+    EmptyState: typeof import('./src/components/EmptyState.vue')['default']
     ExpenseFormDialog: typeof import('./src/components/ExpenseFormDialog.vue')['default']
     OverspendBanner: typeof import('./src/components/OverspendBanner.vue')['default']
     PocketMoneyFormDialog: typeof import('./src/components/PocketMoneyFormDialog.vue')['default']
+    QuickExpenseHoverCard: typeof import('./src/components/QuickExpenseHoverCard.vue')['default']
     ResourceState: typeof import('./src/components/ResourceState.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    RowActionsMenu: typeof import('./src/components/RowActionsMenu.vue')['default']
   }
 }

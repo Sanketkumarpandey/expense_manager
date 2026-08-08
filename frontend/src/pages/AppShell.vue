@@ -17,7 +17,7 @@
           <span class="lucide-wallet size-4.5" />
         </span>
         <div v-if="!effectiveCollapsed" class="min-w-0 leading-tight">
-          <p class="truncate text-sm font-semibold text-ink-gray-9">Expense Manager</p>
+          <p class="truncate text-sm font-semibold text-ink-gray-9">Expenso</p>
           <p class="truncate text-xs text-ink-gray-5">Family money, in one place</p>
         </div>
       </div>
@@ -48,7 +48,8 @@
 
       <div class="space-y-1 border-t border-outline-gray-1 p-2">
         <button
-          class="flex w-full items-center justify-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-ink-gray-7 transition-colors hover:bg-surface-gray-2"
+          class="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-ink-gray-7 transition-colors hover:bg-surface-gray-2"
+          :class="effectiveCollapsed ? 'justify-center px-0' : ''"
           :title="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
           @click="toggleTheme"
         >
@@ -57,7 +58,8 @@
           <span v-if="!effectiveCollapsed">{{ isDark ? 'Light mode' : 'Dark mode' }}</span>
         </button>
         <button
-          class="flex w-full items-center justify-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-ink-gray-7 transition-colors hover:bg-surface-gray-2"
+          class="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-ink-gray-7 transition-colors hover:bg-surface-gray-2"
+          :class="effectiveCollapsed ? 'justify-center px-0' : ''"
           :title="isMobile ? 'Close menu' : (collapsed ? 'Expand sidebar' : 'Collapse sidebar')"
           @click="toggleSidebar"
         >
@@ -75,7 +77,7 @@
       @click="mobileNavOpen = false"
     />
 
-    <div class="flex min-w-0 flex-1 flex-col">
+    <div class="app-typography flex min-w-0 flex-1 flex-col">
       <header
         class="flex h-14 flex-shrink-0 items-center justify-between border-b border-outline-gray-1 bg-surface-white px-6"
       >
@@ -92,16 +94,17 @@
           <h1 class="text-base font-semibold text-ink-gray-9">{{ pageTitle }}</h1>
         </div>
         <div class="flex items-center gap-3">
-          <div class="flex items-center gap-2">
-            <Avatar :label="displayName" size="xl" />
-            <span class="hidden text-sm text-ink-gray-7 sm:block">{{ displayName }}</span>
-          </div>
-          <Button variant="subtle" size="sm" :loading="loggingOut" @click="logout">
-            <template #prefix>
-              <span class="lucide-log-out size-4" />
+          <Dropdown :options="userMenuOptions" align="end">
+            <template #trigger>
+              <div
+                class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-surface-gray-2"
+                :title="displayName"
+              >
+                <Avatar :label="displayName" size="xl" />
+                <span class="hidden text-sm text-ink-gray-7 sm:block">{{ displayName }}</span>
+              </div>
             </template>
-            <span class="hidden sm:inline">Log out</span>
-          </Button>
+          </Dropdown>
         </div>
       </header>
 
@@ -115,12 +118,14 @@
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { Avatar, Button, call, useTheme } from 'frappe-ui'
+import { Avatar, Button, call, useTheme, Dropdown } from 'frappe-ui'
 import PanelLeftClose from '~icons/lucide/panel-left-close'
 import PanelLeftOpen from '~icons/lucide/panel-left-open'
 import Sun from '~icons/lucide/sun'
 import Moon from '~icons/lucide/moon'
 import X from '~icons/lucide/x'
+import LogOut from '~icons/lucide/log-out'
+import User from '~icons/lucide/user'
 
 const route = useRoute()
 const loggingOut = ref(false)
@@ -165,7 +170,23 @@ const displayName = computed(() => {
   return user.value
 })
 
-const pageTitle = computed(() => route.meta.title || 'Expense Manager')
+const userMenuOptions = [
+  {
+    label: displayName.value,
+    icon: User,
+    disabled: true,
+  },
+  {
+    type: 'separator',
+  },
+  {
+    label: 'Log out',
+    icon: LogOut,
+    onClick: logout,
+  },
+]
+
+const pageTitle = computed(() => route.meta.title || 'Expenso')
 
 const navItems = [
   { route: 'dashboard', label: 'Dashboard', icon: 'lucide-layout-dashboard' },

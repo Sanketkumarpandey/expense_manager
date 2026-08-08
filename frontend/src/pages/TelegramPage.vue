@@ -114,7 +114,7 @@
             <h3 class="text-sm font-semibold text-ink-gray-9">How to complete linking:</h3>
             <ol class="list-inside list-decimal space-y-2 pl-1 text-sm text-ink-gray-7">
               <li>Open your Telegram app.</li>
-              <li>Search for your Expense Manager Bot.</li>
+              <li>Search for the Expenso bot on Telegram.</li>
               <li>
                 Send the command:
                 <code class="rounded bg-surface-gray-2 px-2 py-0.5 font-mono text-xs font-semibold text-ink-gray-9">

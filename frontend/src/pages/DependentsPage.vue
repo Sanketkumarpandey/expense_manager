@@ -35,11 +35,16 @@
         </div>
       </template>
 
-      <div v-if="dependents.length === 0" class="rounded-lg border border-dashed border-outline-gray-2 bg-surface-white p-10 text-center">
-        <p class="text-sm text-ink-gray-5">
-          {{ view === 'active' ? 'No active dependents found. Add your first dependent.' : 'No dependents found.' }}
-        </p>
-      </div>
+      <EmptyState
+        v-if="dependents.length === 0"
+        :icon="Users"
+        :title="view === 'active' ? 'No active dependents' : 'No dependents found'"
+        :description="view === 'active' ? 'Add your first dependent to track pocket money and allowances.' : 'Archived dependents will show up here.'"
+      >
+        <template v-if="view === 'active'" #action>
+          <Button variant="solid" size="sm" @click="openCreate">Add dependent</Button>
+        </template>
+      </EmptyState>
 
       <div v-else class="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div
@@ -70,42 +75,7 @@
                 </div>
               </div>
 
-              <div class="flex items-center gap-1">
-                <Button variant="ghost" size="sm" title="Edit" @click="openEdit(dep)">
-                  <template #prefix>
-                    <Pencil class="size-4" />
-                  </template>
-                </Button>
-                <Button
-                  v-if="dep.is_active"
-                  variant="ghost"
-                  size="sm"
-                  title="Archive"
-                  :loading="archiving === dep.name"
-                  @click="archiveDep(dep)"
-                >
-                  <template #prefix>
-                    <Archive class="size-4" />
-                  </template>
-                </Button>
-                <Button
-                  v-else
-                  variant="ghost"
-                  size="sm"
-                  title="Restore"
-                  :loading="restoring === dep.name"
-                  @click="restoreDep(dep)"
-                >
-                  <template #prefix>
-                    <RotateCcw class="size-4" />
-                  </template>
-                </Button>
-                <Button variant="ghost" size="sm" title="Delete" @click="requestDelete(dep)">
-                  <template #prefix>
-                    <Trash2 class="size-4" />
-                  </template>
-                </Button>
-              </div>
+              <RowActionsMenu :items="rowActions(dep)" />
             </div>
 
             <!-- Stats & Allowance section -->
@@ -119,7 +89,10 @@
               <div>
                 <p class="text-xs text-ink-gray-5">Total Savings</p>
                 <p class="mt-0.5 text-sm font-semibold text-ink-green-3">
-                  {{ inr(dep.total_savings) }}
+                  {{ inr(savingsOf(dep)) }}
+                </p>
+                <p v-if="bankedSavingsOf(dep)" class="mt-0.5 text-xs text-ink-gray-5">
+                  Plus {{ inr(bankedSavingsOf(dep)) }} banked
                 </p>
               </div>
             </div>
@@ -223,6 +196,9 @@ import DependentFormDialog from '@/components/DependentFormDialog.vue'
 import PocketMoneyFormDialog from '@/components/PocketMoneyFormDialog.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import AllowedCategoriesSection from '@/components/AllowedCategoriesSection.vue'
+import RowActionsMenu from '@/components/RowActionsMenu.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import Users from '~icons/lucide/users'
 
 const viewModes = [
   { value: 'active', label: 'Active' },
@@ -272,6 +248,18 @@ watch(
 
 function balanceOf(depName) {
   return balances[depName] || null
+}
+
+function savingsOf(dep) {
+  const b = balanceOf(dep.name)
+  if (b && b.remaining_amount !== undefined) return b.remaining_amount
+  return dep.total_savings || 0
+}
+
+function bankedSavingsOf(dep) {
+  const b = balanceOf(dep.name)
+  const banked = b && b.total_savings ? b.total_savings : 0
+  return banked > 0 ? banked : null
 }
 
 function balancePct(depName) {
@@ -429,4 +417,36 @@ const inr = (value) =>
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(value || 0)
+
+function rowActions(dep) {
+  const actions = [
+    {
+      label: 'Edit',
+      icon: Pencil,
+      onClick: () => openEdit(dep),
+    },
+  ]
+  if (dep.is_active) {
+    actions.push({
+      label: 'Archive',
+      icon: Archive,
+      disabled: archiving.value === dep.name,
+      onClick: () => archiveDep(dep),
+    })
+  } else {
+    actions.push({
+      label: 'Restore',
+      icon: RotateCcw,
+      disabled: restoring.value === dep.name,
+      onClick: () => restoreDep(dep),
+    })
+  }
+  actions.push({
+    label: 'Delete',
+    icon: Trash2,
+    theme: 'red',
+    onClick: () => requestDelete(dep),
+  })
+  return actions
+}
 </script>

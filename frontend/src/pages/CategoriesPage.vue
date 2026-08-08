@@ -35,11 +35,16 @@
         </div>
       </template>
 
-      <div v-if="categories.length === 0" class="rounded-lg border border-dashed border-outline-gray-2 bg-surface-white p-10 text-center">
-        <p class="text-sm text-ink-gray-5">
-          {{ view === 'active' ? 'No active categories yet. Create your first one.' : 'No archived categories.' }}
-        </p>
-      </div>
+      <EmptyState
+        v-if="categories.length === 0"
+        :icon="Tag"
+        :title="view === 'active' ? 'No active categories yet' : 'No archived categories'"
+        :description="view === 'active' ? 'Create your first category to start organizing expenses.' : 'Archived categories will show up here.'"
+      >
+        <template v-if="view === 'active'" #action>
+          <Button variant="solid" size="sm" @click="openCreate">New category</Button>
+        </template>
+      </EmptyState>
 
       <div v-else class="divide-y divide-outline-gray-1 rounded-lg border border-outline-gray-1 bg-surface-white">
         <div v-for="category in categories" :key="category.name" class="flex items-center gap-3 px-4 py-3">
@@ -57,42 +62,7 @@
             <p class="text-xs text-ink-gray-5">Created {{ formatDate(category.creation) }}</p>
           </div>
 
-          <div class="flex shrink-0 items-center gap-1.5">
-            <Button variant="ghost" size="sm" title="Edit" @click="openEdit(category)">
-              <template #prefix>
-                <Pencil class="size-4" />
-              </template>
-            </Button>
-            <Button
-              v-if="category.is_active"
-              variant="ghost"
-              size="sm"
-              title="Archive"
-              :loading="busy === 'archive-' + category.name"
-              @click="archive(category)"
-            >
-              <template #prefix>
-                <Archive class="size-4" />
-              </template>
-            </Button>
-            <Button
-              v-else
-              variant="ghost"
-              size="sm"
-              title="Restore"
-              :loading="busy === 'restore-' + category.name"
-              @click="restore(category)"
-            >
-              <template #prefix>
-                <RotateCcw class="size-4" />
-              </template>
-            </Button>
-            <Button variant="ghost" size="sm" title="Delete" class="text-ink-gray-5 hover:text-ink-red-5" @click="requestDelete(category)">
-              <template #prefix>
-                <Trash2 class="size-4" />
-              </template>
-            </Button>
-          </div>
+          <RowActionsMenu :items="rowActions(category)" />
         </div>
       </div>
     </ResourceState>
@@ -121,6 +91,9 @@ import Trash2 from '~icons/lucide/trash-2'
 import ResourceState from '@/components/ResourceState.vue'
 import CategoryFormDialog from '@/components/CategoryFormDialog.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import RowActionsMenu from '@/components/RowActionsMenu.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import Tag from '~icons/lucide/tag'
 
 const viewModes = [
   { value: 'active', label: 'Active' },
@@ -247,5 +220,37 @@ function formatDate(value) {
     month: 'short',
     year: 'numeric',
   })
+}
+
+function rowActions(category) {
+  const actions = [
+    {
+      label: 'Edit',
+      icon: Pencil,
+      onClick: () => openEdit(category),
+    },
+  ]
+  if (category.is_active) {
+    actions.push({
+      label: 'Archive',
+      icon: Archive,
+      disabled: busy.value === 'archive-' + category.name,
+      onClick: () => archive(category),
+    })
+  } else {
+    actions.push({
+      label: 'Restore',
+      icon: RotateCcw,
+      disabled: busy.value === 'restore-' + category.name,
+      onClick: () => restore(category),
+    })
+  }
+  actions.push({
+    label: 'Delete',
+    icon: Trash2,
+    theme: 'red',
+    onClick: () => requestDelete(category),
+  })
+  return actions
 }
 </script>

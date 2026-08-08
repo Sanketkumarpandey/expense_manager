@@ -164,6 +164,37 @@ class TestGetPocketMoneySummary(ServiceTestCase):
         self.assertEqual(result[0]["dependent_name"], "Son")
         self.assertEqual(result[0]["remaining_amount"], 1500)
 
+    @patch("expense_manager.services.report_service.PocketMoneyService.get_balance")
+    @patch("expense_manager.services.report_service.DependentService.list_dependents")
+    def test_total_savings_includes_remaining(self, mock_dep, mock_bal):
+        mock_dep.return_value = [{"name": "dep-001", "dependent_name": "Son"}]
+        mock_bal.return_value = {
+            "allocated_amount": 2000,
+            "spent_amount": 500,
+            "carry_forward": 0,
+            "remaining_amount": 1500,
+            "total_savings": 750,
+        }
+        result = ReportService.get_pocket_money_summary(SAMPLE_USER)
+        self.assertEqual(result[0]["total_savings"], 2250)
+
+    @patch("expense_manager.services.report_service.PocketMoneyService.get_balance")
+    @patch("expense_manager.services.report_service.DependentService.list_dependents")
+    def test_dependent_filter_narrows_results(self, mock_dep, mock_bal):
+        mock_dep.return_value = [
+            {"name": "dep-001", "dependent_name": "Son"},
+            {"name": "dep-002", "dependent_name": "Daughter"},
+        ]
+        mock_bal.return_value = {
+            "allocated_amount": 0,
+            "spent_amount": 0,
+            "carry_forward": 0,
+            "remaining_amount": 0,
+        }
+        result = ReportService.get_pocket_money_summary(SAMPLE_USER, dependent="dep-002")
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["dependent"], "dep-002")
+
 
 class TestGetCategoryBreakdown(ServiceTestCase):
 
@@ -188,6 +219,12 @@ class TestGetCategoryBreakdown(ServiceTestCase):
         self.assertAlmostEqual(result[0]["percentage_of_total"], 83.33, places=1)
         self.assertEqual(result[1]["category"], "Transport")
         self.assertAlmostEqual(result[1]["percentage_of_total"], 16.67, places=1)
+
+    @patch.object(ReportService, "_get_expenses", return_value=[])
+    def test_category_filter_passed_to_expenses(self, mock_exp):
+        ReportService.get_category_breakdown(SAMPLE_USER, category="cat-food-001")
+        _, kwargs = mock_exp.call_args
+        self.assertEqual(kwargs.get("category"), "cat-food-001")
 
 
 class TestGetMonthlyReport(ServiceTestCase):
@@ -226,6 +263,36 @@ class TestGetSpendingTrend(ServiceTestCase):
         result = ReportService.get_spending_trend(SAMPLE_USER, months=3)
         self.assertEqual(len(result), 3)
         self.assertTrue(all("month" in r for r in result))
+
+    @patch.object(ReportService, "_get_expenses", return_value=[])
+    def test_category_filter_passed_to_expenses(self, mock_exp):
+        ReportService.get_spending_trend(SAMPLE_USER, months=3, category="cat-food-001")
+        _, kwargs = mock_exp.call_args
+        self.assertEqual(kwargs.get("category"), "cat-food-001")
+
+
+class TestGetDashboardSummary(ServiceTestCase):
+
+    @patch("expense_manager.services.report_service.ExpenseService.attach_dependent_names")
+    @patch.object(ReportService, "_category_name_lookup", return_value={})
+    @patch("expense_manager.services.report_service.ExpenseService.list_expenses", return_value=[])
+    @patch.object(ReportService, "_get_expenses", return_value=[])
+    @patch.object(ReportService, "get_budget_summary", return_value=[])
+    def test_filters_passed_to_queries(
+        self, _mock_budget, mock_exp, _mock_list, _mock_lookup, _mock_attach
+    ):
+        ReportService.get_dashboard_summary(
+            SAMPLE_USER,
+            dependent="dep-001",
+            category="cat-food-001",
+            date_from="2026-07-01",
+            date_to="2026-07-31",
+        )
+        _, kwargs = mock_exp.call_args_list[0]
+        self.assertEqual(kwargs.get("dependent"), "dep-001")
+        self.assertEqual(kwargs.get("category"), "cat-food-001")
+        self.assertEqual(kwargs.get("date_from"), "2026-07-01")
+        self.assertEqual(kwargs.get("date_to"), "2026-07-31")
 
 
 class TestGetDependentReport(ServiceTestCase):

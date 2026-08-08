@@ -1,24 +1,5 @@
 <template>
   <div class="space-y-6">
-    <section class="rounded-lg border border-outline-gray-1 bg-surface-white p-5">
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div class="min-w-0 flex-1">
-          <Input
-            v-model="quickText"
-            placeholder="Quick add — e.g. &quot;Lunch 250&quot;"
-            :disabled="quickAdding"
-            @keydown.enter="quickAdd"
-          />
-        </div>
-        <Button variant="solid" :loading="quickAdding" @click="quickAdd">
-          <template #prefix>
-            <span class="lucide-wand-2 size-4 text-white" />
-          </template>
-          <span class="hidden sm:inline">Add</span>
-        </Button>
-      </div>
-    </section>
-
     <OverspendBanner
       v-if="overspend"
       :overspend="overspend"
@@ -30,23 +11,6 @@
         {{ expenses.length }} {{ expenses.length === 1 ? 'expense' : 'expenses' }}
       </p>
       <div class="flex items-center gap-2">
-        <Button
-          variant="subtle"
-          size="sm"
-          :class="showFilters || hasFilters ? 'bg-surface-gray-2' : ''"
-          @click="showFilters = !showFilters"
-        >
-          <template #prefix>
-            <SlidersHorizontal class="size-4" />
-          </template>
-          Filters
-          <span
-            v-if="activeFilterCount"
-            class="ml-1 rounded-full bg-surface-gray-3 px-1.5 text-xs font-medium text-ink-gray-7"
-          >
-            {{ activeFilterCount }}
-          </span>
-        </Button>
         <Button variant="solid" size="sm" @click="openCreate">
           <template #prefix>
             <span class="lucide-plus size-4 text-white" />
@@ -56,46 +20,6 @@
       </div>
     </div>
 
-    <section
-      v-if="showFilters || hasFilters"
-      class="rounded-lg border border-outline-gray-1 bg-surface-white p-4"
-    >
-      <div class="flex flex-wrap items-end gap-4 sm:gap-6">
-        <div class="flex w-48 flex-col gap-1.5">
-          <FormLabel label="Dependent" />
-          <DependentPicker v-model="filters.dependent" placeholder="All dependents" />
-        </div>
-
-        <div class="flex w-48 flex-col gap-1.5">
-          <FormLabel label="Category" />
-          <CategoryPicker v-model="filters.category" placeholder="All categories" />
-        </div>
-
-        <div class="flex w-40 flex-col gap-1.5">
-          <FormLabel label="From" />
-          <DatePicker v-model="filters.date_from" placeholder="Start date" />
-        </div>
-
-        <div class="flex w-40 flex-col gap-1.5">
-          <FormLabel label="To" />
-          <DatePicker v-model="filters.date_to" placeholder="End date" />
-        </div>
-
-        <Button
-          v-if="hasFilters"
-          variant="subtle"
-          size="sm"
-          class="mb-0.5"
-          @click="clearFilters"
-        >
-          <template #prefix>
-            <span class="lucide-x size-4" />
-          </template>
-          Clear filters
-        </Button>
-      </div>
-    </section>
-
     <ResourceState :resource="list" label="your expenses">
       <template #skeleton>
         <div class="space-y-2">
@@ -103,11 +27,16 @@
         </div>
       </template>
 
-      <div v-if="expenses.length === 0" class="rounded-lg border border-dashed border-outline-gray-2 bg-surface-white p-10 text-center">
-        <p class="text-sm text-ink-gray-5">
-          No expenses found. Try clearing the filters or add a new expense.
-        </p>
-      </div>
+      <EmptyState
+        v-if="expenses.length === 0"
+        :icon="Receipt"
+        title="No expenses found"
+        description="Add a new expense to get started."
+      >
+        <template #action>
+          <Button variant="solid" size="sm" @click="openCreate">Add expense</Button>
+        </template>
+      </EmptyState>
 
       <div v-else class="overflow-hidden rounded-lg border border-outline-gray-1 bg-surface-white">
         <div class="hidden items-center gap-4 border-b border-outline-gray-1 px-4 py-2 text-xs font-medium text-ink-gray-5 md:flex">
@@ -168,17 +97,8 @@
               {{ inr(expense.amount) }}
             </p>
 
-            <div class="flex w-20 shrink-0 items-center justify-end gap-1.5 pl-1">
-              <Button variant="ghost" size="sm" title="Edit" @click="openEdit(expense)">
-                <template #prefix>
-                  <span class="lucide-pencil size-4" />
-                </template>
-              </Button>
-              <Button variant="ghost" size="sm" title="Delete" @click="requestDelete(expense)">
-                <template #prefix>
-                  <span class="lucide-trash-2 size-4" />
-                </template>
-              </Button>
+            <div class="flex w-20 shrink-0 items-center justify-end pl-1">
+              <RowActionsMenu :items="rowActions(expense)" />
             </div>
           </div>
         </div>
@@ -199,64 +119,32 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import {
   Button,
-  DatePicker,
-  FormLabel,
-  Input,
-  createResource,
   call,
+  createResource,
   toast,
 } from 'frappe-ui'
-import SlidersHorizontal from '~icons/lucide/sliders-horizontal'
+import Pencil from '~icons/lucide/pencil'
+import Trash2 from '~icons/lucide/trash-2'
 import ResourceState from '@/components/ResourceState.vue'
-import CategoryPicker from '@/components/CategoryPicker.vue'
-import DependentPicker from '@/components/DependentPicker.vue'
 import ExpenseFormDialog from '@/components/ExpenseFormDialog.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import OverspendBanner from '@/components/OverspendBanner.vue'
+import RowActionsMenu from '@/components/RowActionsMenu.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import Receipt from '~icons/lucide/receipt'
 
-const quickText = ref('')
-const quickAdding = ref(false)
 const overspend = ref(null)
-
-const filters = reactive({
-  dependent: null,
-  category: null,
-  date_from: null,
-  date_to: null,
-})
-const showFilters = ref(false)
-
-function buildFilters() {
-  const params = {}
-  if (filters.dependent) params.dependent = filters.dependent
-  if (filters.category) params.category = filters.category
-  if (filters.date_from) params.date_from = filters.date_from
-  if (filters.date_to) params.date_to = filters.date_to
-  return params
-}
 
 const list = createResource({
   url: 'expense_manager.api.expenses.list_expenses',
   method: 'GET',
   auto: true,
-  makeParams: buildFilters,
 })
 
-const hasFilters = computed(() => Object.keys(buildFilters()).length > 0)
-const activeFilterCount = computed(() => Object.keys(buildFilters()).length)
 const expenses = computed(() => list.data || [])
-
-watch(filters, () => list.reload(), { deep: true })
-
-function clearFilters() {
-  filters.dependent = null
-  filters.category = null
-  filters.date_from = null
-  filters.date_to = null
-}
 
 const formOpen = ref(false)
 const editingExpense = ref(null)
@@ -284,36 +172,6 @@ function onSaved(result) {
     toast.success(
       `Added ${inr(result.amount)} under ${result.category_name || 'a category'}.`,
     )
-  }
-}
-
-async function quickAdd() {
-  const text = quickText.value.trim()
-  if (!text || quickAdding.value) return
-
-  quickAdding.value = true
-  try {
-    const result = await call('expense_manager.api.expenses.create_expense_from_text', {
-      text,
-    })
-    if (result && result.success === false) {
-      toast.error(result.message)
-      return
-    }
-    quickText.value = ''
-    list.reload()
-    toast.success(
-      `Added ${inr(result.amount)} under ${result.category_name || 'a category'}.`,
-    )
-    if (result.overspend) {
-      overspend.value = result.overspend
-    } else if (result.warning) {
-      toast.warning(result.warning)
-    }
-  } catch (e) {
-    toast.error(e.message || 'Could not add the expense.')
-  } finally {
-    quickAdding.value = false
   }
 }
 
@@ -370,5 +228,21 @@ function formatDate(value) {
     month: 'short',
     year: 'numeric',
   })
+}
+
+function rowActions(expense) {
+  return [
+    {
+      label: 'Edit',
+      icon: Pencil,
+      onClick: () => openEdit(expense),
+    },
+    {
+      label: 'Delete',
+      icon: Trash2,
+      theme: 'red',
+      onClick: () => requestDelete(expense),
+    },
+  ]
 }
 </script>

@@ -75,16 +75,16 @@ def get_budget_summary(category=None):
 
 
 @frappe.whitelist(methods=["GET"])
-def get_pocket_money_summary():
+def get_pocket_money_summary(dependent=None):
 	user = _current_user()
 	try:
-		return ReportService.get_pocket_money_summary(user)
+		return ReportService.get_pocket_money_summary(user, dependent=dependent)
 	except ExpenseManagerError as exc:
 		return {"success": False, "message": str(exc)}
 
 
 @frappe.whitelist(methods=["GET"])
-def get_category_breakdown(dependent=None, date_from=None, date_to=None):
+def get_category_breakdown(dependent=None, date_from=None, date_to=None, category=None):
 	user = _current_user()
 	try:
 		return ReportService.get_category_breakdown(
@@ -92,6 +92,7 @@ def get_category_breakdown(dependent=None, date_from=None, date_to=None):
 			dependent=dependent,
 			date_from=date_from,
 			date_to=date_to,
+			category=category,
 		)
 	except ExpenseManagerError as exc:
 		return {"success": False, "message": str(exc)}
@@ -120,18 +121,29 @@ def get_dependent_report(dependent):
 
 
 @frappe.whitelist(methods=["GET"])
-def get_spending_trend(dependent=None, months=6):
+def get_spending_trend(dependent=None, months=6, category=None):
 	user = _current_user()
 	try:
-		return ReportService.get_spending_trend(user, dependent=dependent, months=cint(months))
+		return ReportService.get_spending_trend(
+			user,
+			dependent=dependent,
+			months=cint(months),
+			category=category,
+		)
 	except ExpenseManagerError as exc:
 		return {"success": False, "message": str(exc)}
 
 
 @frappe.whitelist(methods=["GET"])
-def get_dashboard_summary():
+def get_dashboard_summary(dependent=None, category=None, date_from=None, date_to=None):
 	user = _current_user()
 	try:
-		return ReportService.get_dashboard_summary(user)
+		return ReportService.get_dashboard_summary(
+			user,
+			dependent=dependent,
+			category=category,
+			date_from=date_from,
+			date_to=date_to,
+		)
 	except ExpenseManagerError as exc:
 		return {"success": False, "message": str(exc)}

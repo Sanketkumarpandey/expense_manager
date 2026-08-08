@@ -300,6 +300,7 @@ class DependentService:
                 "default_monthly_allowance",
                 "allow_carry_forward",
                 "is_active",
+                "total_savings",
                 "creation",
                 "modified",
             ],

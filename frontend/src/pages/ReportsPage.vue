@@ -1,63 +1,11 @@
 <template>
   <div class="space-y-6">
-    <section class="rounded-lg border border-outline-gray-1 bg-surface-white p-4">
-      <div class="flex items-center justify-between gap-3">
-        <p class="text-sm text-ink-gray-5">
-          Report period: {{ periodLabel }}
-        </p>
-        <Button
-          variant="subtle"
-          size="sm"
-          :class="showFilters || hasCustomFilters ? 'bg-surface-gray-2' : ''"
-          @click="showFilters = !showFilters"
-        >
-          <template #prefix>
-            <SlidersHorizontal class="size-4" />
-          </template>
-          Filters
-          <span
-            v-if="activeFilterCount"
-            class="ml-1 rounded-full bg-surface-gray-3 px-1.5 text-xs font-medium text-ink-gray-7"
-          >
-            {{ activeFilterCount }}
-          </span>
-        </Button>
-      </div>
-
-      <section
-        v-if="showFilters || hasCustomFilters"
-        class="mt-3 flex flex-wrap items-end gap-4 border-t border-outline-gray-1 pt-3 sm:gap-6"
-      >
-        <div class="flex w-48 flex-col gap-1.5">
-          <FormLabel label="Dependent" />
-          <DependentPicker v-model="filters.dependent" placeholder="All dependents" />
-        </div>
-        <div class="flex w-44 flex-col gap-1.5">
-          <FormLabel label="From" />
-          <DatePicker v-model="filters.date_from" />
-        </div>
-        <div class="flex w-44 flex-col gap-1.5">
-          <FormLabel label="To" />
-          <DatePicker v-model="filters.date_to" />
-        </div>
-        <Button
-          v-if="hasCustomFilters"
-          variant="subtle"
-          size="sm"
-          class="mb-0.5"
-          @click="clearFilters"
-        >
-          <template #prefix>
-            <X class="size-4" />
-          </template>
-          Reset
-        </Button>
-      </section>
-      <p class="mt-3 text-xs text-ink-gray-5">
-        The spending trend covers the last 6 months; budget and pocket-money
-        reports show the current state.
+    <div>
+      <p class="text-sm text-ink-gray-5">Report period: {{ periodLabel }}</p>
+      <p class="text-xs text-ink-gray-4">
+        The spending trend covers the last 6 months; budget reports show the current state.
       </p>
-    </section>
+    </div>
 
     <ResourceState :resource="combined" label="your reports">
       <template #skeleton>
@@ -65,7 +13,7 @@
           <div class="grid grid-cols-2 gap-4 lg:grid-cols-3">
             <div v-for="i in 3" :key="i" class="h-28 animate-pulse rounded-lg bg-surface-gray-2" />
           </div>
-          <div v-for="i in 3" :key="`c${i}`" class="h-48 animate-pulse rounded-lg bg-surface-gray-2" />
+          <div v-for="i in 2" :key="`c${i}`" class="h-48 animate-pulse rounded-lg bg-surface-gray-2" />
         </div>
       </template>
 
@@ -87,7 +35,7 @@
         <div class="rounded-lg border border-outline-gray-1 bg-surface-white p-5">
           <div class="flex items-center gap-2">
             <span class="grid size-8 place-items-center rounded-lg bg-surface-gray-2 text-ink-gray-6">
-              <BarChart3 class="size-4" />
+              <LineChart class="size-4" />
             </span>
             <div>
               <p class="text-sm font-medium text-ink-gray-9">Monthly spending trend</p>
@@ -95,33 +43,18 @@
             </div>
           </div>
 
-          <p v-if="trend.length === 0" class="mt-6 text-center text-sm text-ink-gray-5">
+          <p v-if="!trendHasData" class="mt-6 text-center text-sm text-ink-gray-5">
             No expenses in the last 6 months.
           </p>
-          <div v-else class="mt-6 flex items-end gap-3 border-b border-outline-gray-1 pb-2 sm:gap-6">
-            <div
-              v-for="row in trend"
-              :key="row.month"
-              class="flex min-w-0 flex-1 flex-col items-center gap-1.5"
-            >
-              <p class="text-xs font-medium text-ink-gray-7">{{ inr(row.total_amount) }}</p>
-              <div class="flex h-36 w-full items-end justify-center rounded-md bg-surface-gray-1 p-1">
-                <div
-                  class="w-full max-w-14 rounded-t-md transition-all shadow-sm"
-                  :class="row.total_amount > 0 ? 'bg-surface-blue-3 hover:bg-surface-blue-4' : 'bg-surface-gray-3'"
-                  :style="{ height: trendHeight(row) + '%' }"
-                  :title="`${monthLabel(row.month)}: ${inr(row.total_amount)}`"
-                />
-              </div>
-              <p class="text-xs font-medium text-ink-gray-7">{{ monthLabel(row.month) }}</p>
-            </div>
+          <div v-else class="mt-4">
+            <ChartBox type="line" :data="trendChartData" :options="trendChartOptions" height="280px" />
           </div>
         </div>
 
         <div class="rounded-lg border border-outline-gray-1 bg-surface-white p-5">
           <div class="flex items-center gap-2">
             <span class="grid size-8 place-items-center rounded-lg bg-surface-gray-2 text-ink-gray-6">
-              <PieChart class="size-4" />
+              <BarChart3 class="size-4" />
             </span>
             <div>
               <p class="text-sm font-medium text-ink-gray-9">Category breakdown</p>
@@ -132,35 +65,8 @@
           <p v-if="breakdown.length === 0" class="mt-6 text-center text-sm text-ink-gray-5">
             No expenses in this period.
           </p>
-          <div v-else class="mt-4 space-y-3">
-            <div
-              v-for="row in breakdown"
-              :key="row.category"
-              class="flex items-center gap-3"
-            >
-              <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-gray-2 text-lg">
-                {{ row.category_icon || '🏷️' }}
-              </span>
-              <div class="min-w-0 flex-1">
-                <div class="flex items-baseline justify-between gap-2">
-                  <p class="truncate text-sm font-medium text-ink-gray-9">{{ row.category_name }}</p>
-                  <p class="shrink-0 text-sm font-medium text-ink-gray-9">{{ inr(row.total_amount) }}</p>
-                </div>
-                <div class="mt-1 flex items-center gap-2">
-                  <div class="h-2.5 flex-1 overflow-hidden rounded-full bg-surface-gray-2">
-                    <div
-                      class="h-full rounded-full transition-all"
-                      :class="row.percentage_of_total > 0 ? 'bg-surface-blue-3' : 'bg-surface-gray-3'"
-                      :style="{ width: Math.min(row.percentage_of_total, 100) + '%' }"
-                    />
-                  </div>
-                  <p class="shrink-0 text-xs font-medium text-ink-gray-6">
-                    {{ row.expense_count }} {{ row.expense_count === 1 ? 'expense' : 'expenses' }}
-                    · {{ row.percentage_of_total }}%
-                  </p>
-                </div>
-              </div>
-            </div>
+          <div v-else class="mt-4">
+            <ChartBox type="bar" :data="breakdownChartData" :options="breakdownChartOptions" height="280px" />
           </div>
         </div>
 
@@ -214,62 +120,19 @@
             </div>
           </div>
         </div>
-
-        <div class="rounded-lg border border-outline-gray-1 bg-surface-white p-5">
-          <div class="flex items-center gap-2">
-            <span class="grid size-8 place-items-center rounded-lg bg-surface-gray-2 text-ink-gray-6">
-              <Coins class="size-4" />
-            </span>
-            <div>
-              <p class="text-sm font-medium text-ink-gray-9">Pocket money summary</p>
-              <p class="text-xs text-ink-gray-5">Active allocations, current state</p>
-            </div>
-          </div>
-
-          <p v-if="pocketMoney.length === 0" class="mt-6 text-center text-sm text-ink-gray-5">
-            No active pocket money allocations.
-          </p>
-          <div v-else class="mt-4">
-            <div class="grid grid-cols-[minmax(0,1.5fr)_repeat(5,minmax(0,1fr))] gap-3 border-b border-outline-gray-1 pb-2 text-xs text-ink-gray-5">
-              <p>Dependent</p>
-              <p class="text-right">Allocated</p>
-              <p class="text-right">Spent</p>
-              <p class="text-right">Carry fwd</p>
-              <p class="text-right">Remaining</p>
-              <p class="text-right">Savings</p>
-            </div>
-            <div
-              v-for="row in pocketMoney"
-              :key="row.dependent"
-              class="grid grid-cols-[minmax(0,1.5fr)_repeat(5,minmax(0,1fr))] items-center gap-3 border-b border-outline-gray-1 py-2.5 text-sm last:border-0"
-            >
-              <p class="truncate font-medium text-ink-gray-9">{{ row.dependent_name }}</p>
-              <p class="text-right text-ink-gray-9">{{ inr(row.allocated_amount) }}</p>
-              <p class="text-right text-ink-gray-6">{{ inr(row.spent_amount) }}</p>
-              <p class="text-right text-ink-gray-6">{{ inr(row.carry_forward) }}</p>
-              <p class="text-right font-medium" :class="row.remaining_amount < 0 ? 'text-ink-red-5' : 'text-ink-gray-9'">
-                {{ inr(row.remaining_amount) }}
-              </p>
-              <p class="text-right text-ink-green-3">{{ inr(row.total_savings) }}</p>
-            </div>
-          </div>
-        </div>
       </div>
     </ResourceState>
   </div>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, reactive, ref, watch, watchEffect } from 'vue'
-import { Button, DatePicker, FormLabel, request } from 'frappe-ui'
+import { computed, onBeforeUnmount, reactive, ref, watchEffect } from 'vue'
+import { request } from 'frappe-ui'
 import BarChart3 from '~icons/lucide/bar-chart-3'
-import PieChart from '~icons/lucide/pie-chart'
+import LineChart from '~icons/lucide/line-chart'
 import Wallet from '~icons/lucide/wallet'
-import Coins from '~icons/lucide/coins'
-import X from '~icons/lucide/x'
-import SlidersHorizontal from '~icons/lucide/sliders-horizontal'
 import ResourceState from '@/components/ResourceState.vue'
-import DependentPicker from '@/components/DependentPicker.vue'
+import ChartBox from '@/components/ChartBox.vue'
 
 const now = new Date()
 const pad = (n) => String(n).padStart(2, '0')
@@ -278,35 +141,7 @@ const toLocalDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.
 const defaultFrom = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`
 const defaultTo = toLocalDate(now)
 
-const filters = reactive({
-  dependent: null,
-  date_from: defaultFrom,
-  date_to: defaultTo,
-})
-
-const hasCustomFilters = computed(
-  () =>
-    Boolean(filters.dependent) ||
-    filters.date_from !== defaultFrom ||
-    filters.date_to !== defaultTo,
-)
-
-const activeFilterCount = computed(
-  () =>
-    (filters.dependent ? 1 : 0) +
-    (filters.date_from !== defaultFrom ? 1 : 0) +
-    (filters.date_to !== defaultTo ? 1 : 0),
-)
-
-const showFilters = ref(false)
-
-function clearFilters() {
-  filters.dependent = null
-  filters.date_from = defaultFrom
-  filters.date_to = defaultTo
-}
-
-const periodLabel = computed(() => `${filters.date_from || '…'} – ${filters.date_to || '…'}`)
+const periodLabel = computed(() => `${defaultFrom} – ${defaultTo}`)
 
 const loading = ref(true)
 const error = ref(null)
@@ -316,7 +151,6 @@ const summary = ref(null)
 const trend = ref([])
 const breakdown = ref([])
 const budgetSummary = ref([])
-const pocketMoney = ref([])
 
 async function getReport(method, params) {
   const res = await request({ url: `/api/method/${method}`, params })
@@ -328,37 +162,25 @@ async function reload() {
   loading.value = true
   error.value = null
 
-  const dependentParams = {}
-  if (filters.dependent) dependentParams.dependent = filters.dependent
-
-  const periodParams = {}
-  if (filters.date_from) periodParams.date_from = filters.date_from
-  if (filters.date_to) periodParams.date_to = filters.date_to
-
-  const [s, t, b, bs, pm] = await Promise.allSettled([
+  const [s, t, b, bs] = await Promise.allSettled([
     getReport('expense_manager.api.reports.get_expense_summary', {
-      ...dependentParams,
-      ...periodParams,
+      date_from: defaultFrom,
+      date_to: defaultTo,
     }),
-    getReport('expense_manager.api.reports.get_spending_trend', {
-      ...dependentParams,
-      months: 6,
-    }),
+    getReport('expense_manager.api.reports.get_spending_trend', { months: 6 }),
     getReport('expense_manager.api.reports.get_category_breakdown', {
-      ...dependentParams,
-      ...periodParams,
+      date_from: defaultFrom,
+      date_to: defaultTo,
     }),
-    getReport('expense_manager.api.reports.get_budget_summary', {}),
-    getReport('expense_manager.api.reports.get_pocket_money_summary', {}),
+    getReport('expense_manager.api.reports.get_budget_summary'),
   ])
 
   summary.value = s.status === 'fulfilled' ? s.value : null
   trend.value = t.status === 'fulfilled' && Array.isArray(t.value) ? t.value : []
   breakdown.value = b.status === 'fulfilled' && Array.isArray(b.value) ? b.value : []
   budgetSummary.value = bs.status === 'fulfilled' && Array.isArray(bs.value) ? bs.value : []
-  pocketMoney.value = pm.status === 'fulfilled' && Array.isArray(pm.value) ? pm.value : []
 
-  const failures = [s, t, b, bs, pm].filter((r) => r.status === 'rejected')
+  const failures = [s, t, b, bs].filter((r) => r.status === 'rejected')
   if (failures.length) {
     error.value = 'Some reports could not be loaded.'
   } else {
@@ -367,11 +189,7 @@ async function reload() {
   loading.value = false
 }
 
-watch(
-  () => [filters.dependent, filters.date_from, filters.date_to],
-  reload,
-  { immediate: true },
-)
+reload()
 
 function reloadIfVisible() {
   if (document.visibilityState === 'visible') reload()
@@ -400,22 +218,117 @@ const summaryCards = computed(() => {
   ]
 })
 
-const trendMax = computed(() =>
-  Math.max(0, ...trend.value.map((row) => Number(row.total_amount) || 0)),
-)
-
-function trendHeight(row) {
-  const value = Number(row.total_amount) || 0
-  if (!trendMax.value || !value) return 0
-  return Math.max(6, Math.round((value / trendMax.value) * 100))
-}
-
 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 function monthLabel(monthKey) {
   const month = Number(String(monthKey).split('-')[1])
   return monthNames[month - 1] || monthKey
 }
+
+const CHART_COLORS = ['#007BE0', '#46B37E', '#E79913', '#CC2929', '#7C7C7C', '#0289F7', '#8B5CF6', '#14B8A6']
+
+const isDark = ref(document.documentElement.getAttribute('data-theme') === 'dark')
+if (typeof MutationObserver !== 'undefined') {
+  const themeObserver = new MutationObserver(() => {
+    isDark.value = document.documentElement.getAttribute('data-theme') === 'dark'
+  })
+  themeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-theme'],
+  })
+}
+
+const tickColor = computed(() => (isDark.value ? '#9CA3AF' : '#6B7280'))
+const gridColor = computed(() =>
+  isDark.value ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+)
+
+const compactInr = (value) =>
+  new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(value || 0)
+
+const trendHasData = computed(() => {
+  return trend.value.some((row) => Number(row.total_amount) > 0)
+})
+
+const trendChartLabels = computed(() => trend.value.map((row) => monthLabel(row.month)))
+
+const trendChartData = computed(() => ({
+  labels: trendChartLabels.value,
+  datasets: [
+    {
+      label: 'Total spend',
+      data: trend.value.map((row) => Number(row.total_amount) || 0),
+      borderColor: '#007BE0',
+      backgroundColor: '#007BE0',
+      tension: 0.3,
+      fill: true,
+      borderWidth: 2,
+      pointRadius: 3,
+    },
+  ],
+}))
+
+const trendChartOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      callbacks: {
+        label: (ctx) => `${ctx.dataset.label}: ${compactInr(ctx.parsed.y ?? ctx.parsed)}`,
+      },
+    },
+  },
+  scales: {
+    x: { grid: { display: false }, ticks: { color: tickColor.value, maxRotation: 0 } },
+    y: {
+      beginAtZero: true,
+      grid: { color: gridColor.value },
+      ticks: { color: tickColor.value, callback: (value) => compactInr(value) },
+    },
+  },
+}))
+
+const breakdownChartData = computed(() => ({
+  labels: breakdown.value.map((row) => row.category_name),
+  datasets: [
+    {
+      label: 'Spent',
+      data: breakdown.value.map((row) => Number(row.total_amount) || 0),
+      backgroundColor: breakdown.value.map(
+        (_, i) => CHART_COLORS[i % CHART_COLORS.length],
+      ),
+      borderRadius: 6,
+      maxBarThickness: 44,
+    },
+  ],
+}))
+
+const breakdownChartOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      callbacks: {
+        label: (ctx) => `${ctx.dataset.label}: ${compactInr(ctx.parsed.y ?? ctx.parsed)}`,
+      },
+    },
+  },
+  scales: {
+    x: { grid: { display: false }, ticks: { color: tickColor.value, maxRotation: 30 } },
+    y: {
+      beginAtZero: true,
+      grid: { color: gridColor.value },
+      ticks: { color: tickColor.value, callback: (value) => compactInr(value) },
+    },
+  },
+}))
 
 const inr = (value) =>
   new Intl.NumberFormat('en-IN', {
@@ -425,3 +338,4 @@ const inr = (value) =>
     maximumFractionDigits: 2,
   }).format(value || 0)
 </script>
+

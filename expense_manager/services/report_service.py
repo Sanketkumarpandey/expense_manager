@@ -94,28 +94,44 @@ class ReportService:
         return sorted(summary, key=lambda row: row["spent_amount"], reverse=True)
 
     @staticmethod
-    def get_pocket_money_summary(owner_user: str) -> list[dict]:
+    def get_pocket_money_summary(
+        owner_user: str,
+        dependent: Optional[str] = None,
+    ) -> list[dict]:
         active_dependents = DependentService.list_dependents(owner_user, active_only=True)
+
+        if dependent is not None:
+            active_dependents = [
+                row for row in active_dependents if row["name"] == dependent
+            ]
 
         summary = []
 
-        for dependent in active_dependents:
-            balance = PocketMoneyService.get_balance(owner_user, dependent["name"])
+        for dep_row in active_dependents:
+            balance = PocketMoneyService.get_balance(owner_user, dep_row["name"])
 
             if balance is None:
                 # No active allocation for this dependent right now —
                 # nothing to report, not an error.
                 continue
 
+            # total_savings = the rollover savings ledger PLUS the current
+            # allocation's unspent remainder. This is the "allocation − spent"
+            # figure users read as savings (and it stays correct after a
+            # rollover, where the unspent balance is banked into the ledger).
+            total_savings = flt(balance.get("total_savings", 0)) + flt(
+                balance["remaining_amount"]
+            )
+
             summary.append(
                 {
-                    "dependent": dependent["name"],
-                    "dependent_name": dependent["dependent_name"],
+                    "dependent": dep_row["name"],
+                    "dependent_name": dep_row["dependent_name"],
                     "allocated_amount": balance["allocated_amount"],
                     "spent_amount": balance["spent_amount"],
                     "carry_forward": balance["carry_forward"],
                     "remaining_amount": balance["remaining_amount"],
-                    "total_savings": balance.get("total_savings", 0),
+                    "total_savings": total_savings,
                 }
             )
 
@@ -127,10 +143,17 @@ class ReportService:
         dependent: Optional[str] = None,
         date_from=None,
         date_to=None,
+        category: Optional[str] = None,
     ) -> list[dict]:
         ReportService._validate_date_range(date_from, date_to)
 
-        expenses = ReportService._get_expenses(owner_user, dependent, date_from, date_to)
+        expenses = ReportService._get_expenses(
+            owner_user,
+            dependent=dependent,
+            date_from=date_from,
+            date_to=date_to,
+            category=category,
+        )
         grouped = ReportService._group_by_category(expenses)
         category_names = ReportService._category_name_lookup(owner_user)
 
@@ -205,6 +228,7 @@ class ReportService:
         owner_user: str,
         dependent: Optional[str] = None,
         months: int = 6,
+        category: Optional[str] = None,
     ) -> list[dict]:
         if months <= 0:
             raise InvalidReportDateRangeError(
@@ -214,7 +238,13 @@ class ReportService:
         date_to = getdate(today())
         date_from = get_first_day(add_months(date_to, -(months - 1)))
 
-        expenses = ReportService._get_expenses(owner_user, dependent, date_from, date_to)
+        expenses = ReportService._get_expenses(
+            owner_user,
+            dependent=dependent,
+            date_from=date_from,
+            date_to=date_to,
+            category=category,
+        )
         grouped = ReportService._group_by_month(expenses)
 
         ordered_keys = []
@@ -230,8 +260,20 @@ class ReportService:
         ]
 
     @staticmethod
-    def get_dashboard_summary(owner_user: str) -> dict:
-        return ReportService._build_dashboard(owner_user)
+    def get_dashboard_summary(
+        owner_user: str,
+        dependent: Optional[str] = None,
+        category: Optional[str] = None,
+        date_from=None,
+        date_to=None,
+    ) -> dict:
+        return ReportService._build_dashboard(
+            owner_user,
+            dependent=dependent,
+            category=category,
+            date_from=date_from,
+            date_to=date_to,
+        )
 
     # ------------------------------------------------------------------
     # New: Expense Detail Report (with budget info per row)
@@ -554,20 +596,45 @@ class ReportService:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _build_dashboard(owner_user: str) -> dict:
+    def _build_dashboard(
+        owner_user: str,
+        dependent: Optional[str] = None,
+        category: Optional[str] = None,
+        date_from=None,
+        date_to=None,
+    ) -> dict:
         month_start = get_first_day(today())
 
         total_expense = ReportService._calculate_totals(
-            ReportService._get_expenses(owner_user)
+            ReportService._get_expenses(
+                owner_user,
+                dependent=dependent,
+                category=category,
+                date_from=date_from,
+                date_to=date_to,
+            )
         )["total_amount"]
 
         monthly_expense = ReportService._calculate_totals(
-            ReportService._get_expenses(owner_user, date_from=month_start, date_to=today())
+            ReportService._get_expenses(
+                owner_user,
+                dependent=dependent,
+                category=category,
+                date_from=month_start,
+                date_to=today(),
+            )
         )["total_amount"]
 
-        budget_summary = ReportService.get_budget_summary(owner_user)
+        budget_summary = ReportService.get_budget_summary(owner_user, category=category)
 
-        recent = ExpenseService.get_recent_expenses(owner_user, limit=6)
+        recent = ExpenseService.list_expenses(
+            owner_user,
+            dependent=dependent,
+            category=category,
+            date_from=date_from,
+            date_to=date_to,
+            limit=6,
+        )
         category_names = ReportService._category_name_lookup(owner_user)
         for row in recent:
             cat_info = category_names.get(row.get("category"), {})
@@ -592,10 +659,12 @@ class ReportService:
         dependent: Optional[str] = None,
         date_from=None,
         date_to=None,
+        category: Optional[str] = None,
     ) -> list[dict]:
         return ExpenseService.list_expenses(
             owner_user,
             dependent=dependent,
+            category=category,
             date_from=date_from,
             date_to=date_to,
         )

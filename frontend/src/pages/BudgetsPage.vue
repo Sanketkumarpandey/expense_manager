@@ -22,23 +22,6 @@
           </p>
         </div>
         <div class="flex items-center gap-2">
-          <Button
-            variant="subtle"
-            size="sm"
-            :class="showFilters || hasFilters ? 'bg-surface-gray-2' : ''"
-            @click="showFilters = !showFilters"
-          >
-            <template #prefix>
-              <SlidersHorizontal class="size-4" />
-            </template>
-            Filters
-            <span
-              v-if="activeFilterCount"
-              class="ml-1 rounded-full bg-surface-gray-3 px-1.5 text-xs font-medium text-ink-gray-7"
-            >
-              {{ activeFilterCount }}
-            </span>
-          </Button>
           <Button variant="solid" size="sm" @click="openCreate">
             <template #prefix>
               <Plus class="size-4 text-white" />
@@ -47,32 +30,6 @@
           </Button>
         </div>
       </div>
-
-      <section
-        v-if="showFilters || hasFilters"
-        class="mt-3 flex flex-wrap items-end gap-4 border-t border-outline-gray-1 pt-3 sm:gap-6"
-      >
-        <div class="flex w-48 flex-col gap-1.5">
-          <FormLabel label="Category" />
-          <CategoryPicker v-model="filters.category" placeholder="All categories" />
-        </div>
-        <div class="flex w-48 flex-col gap-1.5">
-          <FormLabel label="Dependent" />
-          <DependentPicker v-model="filters.dependent" placeholder="All dependents" />
-        </div>
-        <Button
-          v-if="hasFilters"
-          variant="subtle"
-          size="sm"
-          class="mb-0.5"
-          @click="clearFilters"
-        >
-          <template #prefix>
-            <X class="size-4" />
-          </template>
-          Clear filters
-        </Button>
-      </section>
     </section>
 
     <ResourceState :resource="combined" label="your budgets">
@@ -82,11 +39,16 @@
         </div>
       </template>
 
-      <div v-if="mergedBudgets.length === 0" class="rounded-lg border border-dashed border-outline-gray-2 bg-surface-white p-10 text-center">
-        <p class="text-sm text-ink-gray-5">
-          {{ activeOnly ? 'No active budgets. Create one to track spending by category.' : 'No budgets found.' }}
-        </p>
-      </div>
+      <EmptyState
+        v-if="mergedBudgets.length === 0"
+        :icon="Target"
+        :title="activeOnly ? 'No active budgets' : 'No budgets found'"
+        :description="activeOnly ? 'Create a budget to start tracking spending by category.' : 'Archived budgets will show up here.'"
+      >
+        <template v-if="activeOnly" #action>
+          <Button variant="solid" size="sm" @click="openCreate">New budget</Button>
+        </template>
+      </EmptyState>
 
       <div v-else class="divide-y divide-outline-gray-1 rounded-lg border border-outline-gray-1 bg-surface-white">
         <div v-for="budget in mergedBudgets" :key="budget.name" class="flex items-start gap-3 px-4 py-3">
@@ -138,42 +100,7 @@
             </div>
           </div>
 
-          <div class="flex shrink-0 items-center gap-1.5">
-            <Button variant="ghost" size="sm" title="Edit" @click="openEdit(budget)">
-              <template #prefix>
-                <Pencil class="size-4" />
-              </template>
-            </Button>
-            <Button
-              v-if="budget.is_active"
-              variant="ghost"
-              size="sm"
-              title="Archive"
-              :loading="busy === 'archive-' + budget.name"
-              @click="archive(budget)"
-            >
-              <template #prefix>
-                <Archive class="size-4" />
-              </template>
-            </Button>
-            <Button
-              v-else
-              variant="ghost"
-              size="sm"
-              title="Restore"
-              :loading="busy === 'restore-' + budget.name"
-              @click="restore(budget)"
-            >
-              <template #prefix>
-                <RotateCcw class="size-4" />
-              </template>
-            </Button>
-            <Button variant="ghost" size="sm" title="Delete" class="text-ink-gray-5 hover:text-ink-red-5" @click="requestDelete(budget)">
-              <template #prefix>
-                <Trash2 class="size-4" />
-              </template>
-            </Button>
-          </div>
+          <RowActionsMenu :items="rowActions(budget)" />
         </div>
       </div>
     </ResourceState>
@@ -193,19 +120,18 @@
 
 <script setup>
 import { computed, reactive, ref, watch, watchEffect } from 'vue'
-import { Button, FormLabel, call, createResource, request, toast } from 'frappe-ui'
+import { Button, call, createResource, request, toast } from 'frappe-ui'
 import Plus from '~icons/lucide/plus'
 import Pencil from '~icons/lucide/pencil'
 import Archive from '~icons/lucide/archive'
 import RotateCcw from '~icons/lucide/rotate-ccw'
 import Trash2 from '~icons/lucide/trash-2'
-import X from '~icons/lucide/x'
-import SlidersHorizontal from '~icons/lucide/sliders-horizontal'
 import ResourceState from '@/components/ResourceState.vue'
-import CategoryPicker from '@/components/CategoryPicker.vue'
-import DependentPicker from '@/components/DependentPicker.vue'
 import BudgetFormDialog from '@/components/BudgetFormDialog.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import RowActionsMenu from '@/components/RowActionsMenu.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import Target from '~icons/lucide/target'
 
 const viewModes = [
   { value: true, label: 'Active' },
@@ -213,31 +139,14 @@ const viewModes = [
 ]
 
 const activeOnly = ref(true)
-const filters = reactive({ category: null, dependent: null })
-const showFilters = ref(false)
-
-const hasFilters = computed(() => Boolean(filters.category || filters.dependent))
-const activeFilterCount = computed(
-  () => (filters.category ? 1 : 0) + (filters.dependent ? 1 : 0),
-)
-
-function clearFilters() {
-  filters.category = null
-  filters.dependent = null
-}
 
 function setView(value) {
   activeOnly.value = value
   reloadAll()
 }
 
-watch(filters, () => reloadAll(), { deep: true })
-
 function budgetParams() {
-  const params = { active_only: activeOnly.value ? 1 : 0 }
-  if (filters.category) params.category = filters.category
-  if (filters.dependent) params.dependent = filters.dependent
-  return params
+  return { active_only: activeOnly.value ? 1 : 0 }
 }
 
 const guardianBudgets = createResource({
@@ -509,4 +418,36 @@ const inr = (value) =>
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(value || 0)
+
+function rowActions(budget) {
+  const actions = [
+    {
+      label: 'Edit',
+      icon: Pencil,
+      onClick: () => openEdit(budget),
+    },
+  ]
+  if (budget.is_active) {
+    actions.push({
+      label: 'Archive',
+      icon: Archive,
+      disabled: busy.value === 'archive-' + budget.name,
+      onClick: () => archive(budget),
+    })
+  } else {
+    actions.push({
+      label: 'Restore',
+      icon: RotateCcw,
+      disabled: busy.value === 'restore-' + budget.name,
+      onClick: () => restore(budget),
+    })
+  }
+  actions.push({
+    label: 'Delete',
+    icon: Trash2,
+    theme: 'red',
+    onClick: () => requestDelete(budget),
+  })
+  return actions
+}
 </script>

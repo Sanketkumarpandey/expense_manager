@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LoginPage from '@/pages/LoginPage.vue'
 import AppShell from '@/pages/AppShell.vue'
-import PlaceholderPage from '@/pages/PlaceholderPage.vue'
 
 function isAuthenticated() {
   return window.user && window.user !== 'Guest'
@@ -84,4 +83,9 @@ router.beforeEach((to) => {
   }
 })
 
+router.afterEach((to) => {
+  document.title = to.meta.title ? `${to.meta.title} — Expenso` : 'Expenso — Family Expense Manager'
+})
+
 export default router
+
