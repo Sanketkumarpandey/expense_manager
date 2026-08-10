@@ -13,7 +13,7 @@ def execute(filters=None):
 
     month = filters.get("month")
     year = filters.get("year")
-    guardian = filters.get("guardian") or owner_user
+    requested_guardian = filters.get("guardian")
 
     if month:
         month = int(month)
@@ -21,9 +21,10 @@ def execute(filters=None):
         year = getdate(today()).year
 
     rows = ReportService.get_guardian_overview_data(
-        guardian,
+        owner_user,
         month=month,
         year=year,
+        requested_user=requested_guardian,
     )
 
     columns = [

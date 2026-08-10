@@ -7,12 +7,25 @@ from frappe.model.document import Document
 from frappe.utils import getdate, today
 
 
+def _is_privileged_session_user() -> bool:
+    """Privileged sessions never have their owner_user rewritten."""
+    if frappe.session.user == "Administrator":
+        return True
+    return "System Manager" in frappe.get_roles(frappe.session.user)
+
+
 class Expense(Document):
     def before_validate(self):
         self.normalize_fields()
 
     def before_insert(self):
-        if not self.owner_user:
+        # Never trust a client-supplied owner_user. Bind the expense to
+        # the current session user unless we are running as Guest (the
+        # Telegram webhook job, which sets owner_user server-side after
+        # resolving the sender) or as a privileged manager.
+        if frappe.session.user != "Guest" and not _is_privileged_session_user():
+            self.owner_user = frappe.session.user
+        elif not self.owner_user:
             self.owner_user = frappe.session.user
 
     def validate(self):

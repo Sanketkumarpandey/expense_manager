@@ -80,3 +80,29 @@ class Dependent(Document):
                 frappe.throw(
                     _("Telegram User ID must contain only digits.")
                 )
+
+            existing_dependent = frappe.db.exists(
+                "Dependent",
+                {
+                    "telegram_user_id": self.telegram_user_id,
+                    "name": ["!=", self.name],
+                },
+            )
+
+            if existing_dependent:
+                frappe.throw(
+                    _("Telegram User ID already assigned to another dependent.")
+                )
+
+            existing_link = frappe.db.exists(
+                "Telegram Link",
+                {
+                    "telegram_user_id": self.telegram_user_id,
+                    "is_active": 1,
+                },
+            )
+
+            if existing_link:
+                frappe.throw(
+                    _("Telegram User ID already linked to a user account.")
+                )

@@ -133,13 +133,13 @@ after_install = "expense_manager.install.after_install"
 # -----------
 # Permissions evaluated in scripted ways
 
-# permission_query_conditions = {
-# 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
-# }
-#
-# has_permission = {
-# 	"Event": "frappe.desk.doctype.event.event.has_permission",
-# }
+permission_query_conditions = {
+    "Expense": "expense_manager.permissions.expense_permission_query_conditions",
+}
+
+has_permission = {
+    "Expense": "expense_manager.permissions.expense_has_permission",
+}
 
 # Document Events
 # ---------------
