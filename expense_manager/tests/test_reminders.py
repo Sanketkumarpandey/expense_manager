@@ -4,13 +4,13 @@ from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
 from expense_manager.jobs import reminders
-from expense_manager.services.report_service import ReportService
 from expense_manager.services.pocket_money_service import PocketMoneyService
-
+from expense_manager.services.report_service import ReportService
 
 # ------------------------------------------------------------------
 # _collect_reminders
 # ------------------------------------------------------------------
+
 
 class TestCollectReminders(TestCase):
 	"""Verify that _collect_reminders aggregates messages from all services."""
@@ -45,6 +45,7 @@ class TestCollectReminders(TestCase):
 # ------------------------------------------------------------------
 # run_reminders
 # ------------------------------------------------------------------
+
 
 class TestRunReminders(TestCase):
 	"""Verify the scheduler dispatches messages for each linked user."""
@@ -99,8 +100,8 @@ class TestRunReminders(TestCase):
 # ReportService notification message builders
 # ------------------------------------------------------------------
 
-class TestBuildNoExpensesTodayMessage(TestCase):
 
+class TestBuildNoExpensesTodayMessage(TestCase):
 	@patch.object(ReportService, "_get_expenses", return_value=[{"name": "e1"}])
 	def test_returns_none_when_expenses_exist(self, _mock):
 		self.assertIsNone(ReportService.build_no_expenses_today_message("user1"))
@@ -112,15 +113,18 @@ class TestBuildNoExpensesTodayMessage(TestCase):
 
 
 class TestBuildWeeklySummaryMessage(TestCase):
-
 	@patch.object(ReportService, "get_category_breakdown", return_value=[])
 	def test_returns_none_when_no_data(self, _mock):
 		self.assertIsNone(ReportService.build_weekly_summary_message("user1"))
 
-	@patch.object(ReportService, "get_category_breakdown", return_value=[
-		{"category_name": "Food", "total_amount": 500},
-		{"category_name": "Transport", "total_amount": 200},
-	])
+	@patch.object(
+		ReportService,
+		"get_category_breakdown",
+		return_value=[
+			{"category_name": "Food", "total_amount": 500},
+			{"category_name": "Transport", "total_amount": 200},
+		],
+	)
 	def test_returns_formatted_summary(self, _mock):
 		msg = ReportService.build_weekly_summary_message("user1")
 		self.assertIn("Weekly summary", msg)
@@ -129,14 +133,17 @@ class TestBuildWeeklySummaryMessage(TestCase):
 
 
 class TestBuildMonthlySummaryMessage(TestCase):
-
 	@patch.object(ReportService, "get_category_breakdown", return_value=[])
 	def test_returns_none_when_no_data(self, _mock):
 		self.assertIsNone(ReportService.build_monthly_summary_message("user1"))
 
-	@patch.object(ReportService, "get_category_breakdown", return_value=[
-		{"category_name": "Bills", "total_amount": 1200},
-	])
+	@patch.object(
+		ReportService,
+		"get_category_breakdown",
+		return_value=[
+			{"category_name": "Bills", "total_amount": 1200},
+		],
+	)
 	def test_returns_formatted_summary(self, _mock):
 		msg = ReportService.build_monthly_summary_message("user1")
 		self.assertIn("Monthly summary", msg)
@@ -147,27 +154,35 @@ class TestBuildMonthlySummaryMessage(TestCase):
 # PocketMoneyService low-balance message builder
 # ------------------------------------------------------------------
 
-class TestBuildLowBalanceMessages(TestCase):
 
+class TestBuildLowBalanceMessages(TestCase):
 	@patch.object(PocketMoneyService, "get_balance", return_value=None)
 	@patch("expense_manager.services.pocket_money_service.DependentService")
 	def test_returns_empty_when_no_balances(self, mock_ds, _mock_bal):
 		mock_ds.list_dependents.return_value = [{"name": "d1", "dependent_name": "Son"}]
 		self.assertEqual(PocketMoneyService.build_low_balance_messages("user1"), [])
 
-	@patch.object(PocketMoneyService, "get_balance", return_value={
-		"allocated_amount": 1000,
-		"remaining_amount": 800,
-	})
+	@patch.object(
+		PocketMoneyService,
+		"get_balance",
+		return_value={
+			"allocated_amount": 1000,
+			"remaining_amount": 800,
+		},
+	)
 	@patch("expense_manager.services.pocket_money_service.DependentService")
 	def test_returns_empty_when_balance_high(self, mock_ds, _mock_bal):
 		mock_ds.list_dependents.return_value = [{"name": "d1", "dependent_name": "Son"}]
 		self.assertEqual(PocketMoneyService.build_low_balance_messages("user1"), [])
 
-	@patch.object(PocketMoneyService, "get_balance", return_value={
-		"allocated_amount": 1000,
-		"remaining_amount": 100,
-	})
+	@patch.object(
+		PocketMoneyService,
+		"get_balance",
+		return_value={
+			"allocated_amount": 1000,
+			"remaining_amount": 100,
+		},
+	)
 	@patch("expense_manager.services.pocket_money_service.DependentService")
 	def test_returns_message_when_balance_low(self, mock_ds, _mock_bal):
 		mock_ds.list_dependents.return_value = [{"name": "d1", "dependent_name": "Son"}]

@@ -1,8 +1,8 @@
 """Reply for the Telegram /report command — sends a chart image with a caption."""
 
-from expense_manager.telegram.services.telegram_service import TelegramService, send_photo
-from expense_manager.telegram.utils.helpers import get_telegram_user_id, get_chat_id
 from expense_manager.api.reports import generate_chart_png
+from expense_manager.telegram.services.telegram_service import TelegramService, send_photo
+from expense_manager.telegram.utils.helpers import get_chat_id, get_telegram_user_id
 
 
 def handle_report(update: dict[str, object]) -> str | None:

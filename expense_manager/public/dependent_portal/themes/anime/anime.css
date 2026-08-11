@@ -9,22 +9,22 @@ html[data-theme="animejs"] {
   --ani-bg-hover: #24334a;
   --ani-border: #334155;
   --ani-border-subtle: rgba(255, 255, 255, 0.08);
-  
+
   --ani-ink-main: #ffffff;
   --ani-ink-muted: #94a3b8;
   --ani-ink-subtle: #64748b;
-  
+
   --ani-accent: #f59e0b;
   --ani-accent-glow: rgba(245, 158, 11, 0.35);
-  
+
   --ani-success-bg: rgba(16, 185, 129, 0.15);
   --ani-success-border: #10b981;
   --ani-success-ink: #34d399;
-  
+
   --ani-danger-bg: rgba(244, 63, 94, 0.15);
   --ani-danger-border: #f43f5e;
   --ani-danger-ink: #fb7185;
-  
+
   --ani-shadow-md: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
 }
 

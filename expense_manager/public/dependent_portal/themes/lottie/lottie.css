@@ -9,22 +9,22 @@ html[data-theme="lottie"] {
   --lot-bg-hover: #faf5ff;
   --lot-border: #e9d5ff;
   --lot-border-subtle: #f5edff;
-  
+
   --lot-ink-main: #2e1065;
   --lot-ink-muted: #6b21a8;
   --lot-ink-subtle: #a855f7;
-  
+
   --lot-accent: #7c3aed;
   --lot-accent-glow: rgba(124, 58, 237, 0.25);
-  
+
   --lot-success-bg: #ecfdf5;
   --lot-success-border: #6ee7b7;
   --lot-success-ink: #047857;
-  
+
   --lot-danger-bg: #fff1f2;
   --lot-danger-border: #fecdd3;
   --lot-danger-ink: #be123c;
-  
+
   --lot-shadow-sm: 0 2px 4px rgba(124, 58, 237, 0.04);
   --lot-shadow-md: 0 10px 25px -5px rgba(124, 58, 237, 0.12), 0 8px 10px -6px rgba(124, 58, 237, 0.08);
   --lot-shadow-lg: 0 20px 35px -10px rgba(124, 58, 237, 0.18);

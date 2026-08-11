@@ -12,15 +12,15 @@ guardian's owner_user regardless of which dependent they're for.
 import io
 
 import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
+matplotlib.use("Agg")
 import frappe
+import matplotlib.pyplot as plt
 from frappe.utils import cint
 
-from expense_manager.services.report_service import ReportService
-from expense_manager.services.exceptions import ExpenseManagerError
 from expense_manager.api.utils import current_user as _current_user
+from expense_manager.services.exceptions import ExpenseManagerError
+from expense_manager.services.report_service import ReportService
 
 
 def generate_chart_png(

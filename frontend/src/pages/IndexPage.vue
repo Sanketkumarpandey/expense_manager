@@ -1,5 +1,5 @@
 <template>
-  <div class="flex h-screen items-center justify-center">
-    <p class="text-lg text-ink-gray-7">Expenso</p>
-  </div>
+	<div class="flex h-screen items-center justify-center">
+		<p class="text-lg text-ink-gray-7">Expenso</p>
+	</div>
 </template>

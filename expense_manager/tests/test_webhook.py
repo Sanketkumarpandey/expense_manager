@@ -22,7 +22,9 @@ class TestTelegramWebhook(TestCase):
 		self.patches = (
 			patch.object(webhook.frappe, "request", self.request),
 			patch.object(webhook.frappe, "cache", return_value=self.cache),
-			patch("expense_manager.telegram.webhook.get_telegram_webhook_secret", return_value="expected-secret"),
+			patch(
+				"expense_manager.telegram.webhook.get_telegram_webhook_secret", return_value="expected-secret"
+			),
 			patch.object(webhook.frappe, "enqueue"),
 			patch.object(webhook.frappe, "logger"),
 		)

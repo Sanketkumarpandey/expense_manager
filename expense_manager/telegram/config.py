@@ -12,7 +12,6 @@ import frappe
 
 from expense_manager.config.exceptions import ConfigurationError
 
-
 _DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _FALSE_VALUES = frozenset({"0", "false", "no", "off", ""})
@@ -89,6 +88,5 @@ def get_use_mock_ai_apis() -> bool:
 		if normalized_value in _FALSE_VALUES:
 			return False
 	raise ConfigurationError(
-		"Invalid configuration 'use_mock_ai_apis'. Set USE_MOCK_AI_APIS or "
-		"use_mock_ai_apis to 0 or 1."
+		"Invalid configuration 'use_mock_ai_apis'. Set USE_MOCK_AI_APIS or use_mock_ai_apis to 0 or 1."
 	)

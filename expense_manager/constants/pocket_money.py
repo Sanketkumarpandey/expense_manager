@@ -4,7 +4,7 @@ from enum import Enum
 
 
 class AllocationPeriod(str, Enum):
-    WEEKLY = "Weekly"
-    MONTHLY = "Monthly"
-    QUARTERLY = "Quarterly"
-    YEARLY = "Yearly"
+	WEEKLY = "Weekly"
+	MONTHLY = "Monthly"
+	QUARTERLY = "Quarterly"
+	YEARLY = "Yearly"

@@ -41,10 +41,13 @@ class TestTelegramConfig(TestCase):
 
 	def test_site_configuration_and_defaults_are_supported(self) -> None:
 		"""Read site configuration and use documented defaults when optional."""
-		with patch.dict(os.environ, {}, clear=True), patch.object(
-			config.frappe,
-			"conf",
-			{"telegram_webhook_secret": "site-secret", "use_mock_ai_apis": 1},
+		with (
+			patch.dict(os.environ, {}, clear=True),
+			patch.object(
+				config.frappe,
+				"conf",
+				{"telegram_webhook_secret": "site-secret", "use_mock_ai_apis": 1},
+			),
 		):
 			self.assertEqual(config.get_telegram_webhook_secret(), "site-secret")
 			self.assertEqual(config.get_groq_model(), "llama-3.3-70b-versatile")
@@ -56,15 +59,18 @@ class TestTelegramConfig(TestCase):
 
 	def test_all_required_credentials_are_read_from_site_configuration(self) -> None:
 		"""Return each required credential when it is present in site configuration."""
-		with patch.dict(os.environ, {}, clear=True), patch.object(
-			config.frappe,
-			"conf",
-			{
-				"telegram_bot_token": "bot-value",
-				"telegram_webhook_secret": "webhook-value",
-				"sarvam_api_key": "sarvam-value",
-				"groq_api_key": "groq-value",
-			},
+		with (
+			patch.dict(os.environ, {}, clear=True),
+			patch.object(
+				config.frappe,
+				"conf",
+				{
+					"telegram_bot_token": "bot-value",
+					"telegram_webhook_secret": "webhook-value",
+					"sarvam_api_key": "sarvam-value",
+					"groq_api_key": "groq-value",
+				},
+			),
 		):
 			self.assertEqual(config.get_telegram_bot_token(), "bot-value")
 			self.assertEqual(config.get_telegram_webhook_secret(), "webhook-value")
@@ -79,8 +85,9 @@ class TestTelegramConfig(TestCase):
 
 	def test_mock_mode_rejects_invalid_flag_values(self) -> None:
 		"""Reject mock-mode values other than accepted boolean representations."""
-		with patch.dict(os.environ, {"USE_MOCK_AI_APIS": "sometimes"}, clear=True), patch.object(
-			config.frappe, "conf", {}
+		with (
+			patch.dict(os.environ, {"USE_MOCK_AI_APIS": "sometimes"}, clear=True),
+			patch.object(config.frappe, "conf", {}),
 		):
 			with self.assertRaisesRegex(ConfigurationError, "use_mock_ai_apis"):
 				config.get_use_mock_ai_apis()

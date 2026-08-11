@@ -67,9 +67,9 @@ doctype_js = {"User": "public/js/user.js"}
 
 # Vue SPA served from frontend/ build output (expense_manager/www/expense_manager.html)
 website_route_rules = [
-    {"from_route": "/expense_manager/<path:app_path>", "to_route": "expense_manager"},
-    {"from_route": "/dependent/<token>", "to_route": "dependent_portal"},
-    {"from_route": "/dependent", "to_route": "dependent_portal"},
+	{"from_route": "/expense_manager/<path:app_path>", "to_route": "expense_manager"},
+	{"from_route": "/dependent/<token>", "to_route": "dependent_portal"},
+	{"from_route": "/dependent", "to_route": "dependent_portal"},
 ]
 
 # Generators
@@ -136,11 +136,11 @@ after_install = "expense_manager.install.after_install"
 # Permissions evaluated in scripted ways
 
 permission_query_conditions = {
-    "Expense": "expense_manager.permissions.expense_permission_query_conditions",
+	"Expense": "expense_manager.permissions.expense_permission_query_conditions",
 }
 
 has_permission = {
-    "Expense": "expense_manager.permissions.expense_has_permission",
+	"Expense": "expense_manager.permissions.expense_has_permission",
 }
 
 # Document Events
@@ -148,12 +148,12 @@ has_permission = {
 # Hook on document methods and events
 
 doc_events = {
-    "Dependent": {
-        "after_insert": "expense_manager.expense_manager.doctype.dependent.hooks.dependent_after_insert",
-    },
-    "User": {
-        "on_update": "expense_manager.expense_manager.doctype.user.hooks.user_on_update",
-    },
+	"Dependent": {
+		"after_insert": "expense_manager.expense_manager.doctype.dependent.hooks.dependent_after_insert",
+	},
+	"User": {
+		"on_update": "expense_manager.expense_manager.doctype.user.hooks.user_on_update",
+	},
 }
 
 # Scheduled Tasks
@@ -179,9 +179,9 @@ doc_events = {
 scheduler_events = {
 	"daily": [
 		"expense_manager.jobs.monthly_rollover.run_monthly_rollover",
-        "expense_manager.jobs.budget_alerts.run_budget_alerts",
-        "expense_manager.jobs.reminders.run_reminders",
-        "expense_manager.jobs.pending_allocation_reminders.run_pending_allocation_reminders",
+		"expense_manager.jobs.budget_alerts.run_budget_alerts",
+		"expense_manager.jobs.reminders.run_reminders",
+		"expense_manager.jobs.pending_allocation_reminders.run_pending_allocation_reminders",
 	],
 }
 
@@ -273,4 +273,3 @@ scheduler_events = {
 # ------------
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
-

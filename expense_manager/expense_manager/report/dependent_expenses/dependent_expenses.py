@@ -49,9 +49,11 @@ def execute(filters=None):
 		rows.append({"metric": "", "value": ""})
 		rows.append({"metric": _("--- Category Breakdown ---"), "value": ""})
 		for cat in category_breakdown:
-			rows.append({
-				"metric": "  " + cat.get("category_name", ""),
-				"value": cat.get("total_amount", 0),
-			})
+			rows.append(
+				{
+					"metric": "  " + cat.get("category_name", ""),
+					"value": cat.get("total_amount", 0),
+				}
+			)
 
 	return columns, rows

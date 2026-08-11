@@ -20,7 +20,4 @@ def handle_start(update: dict[str, object]) -> str:
 
 	data = status["data"]
 	role = "Dependent" if data.get("is_dependent") else "Individual"
-	return (
-		f"Welcome back! You are linked as a {role}.\n"
-		"Send /help to see the available commands."
-	)
+	return f"Welcome back! You are linked as a {role}.\nSend /help to see the available commands."
