@@ -1,0 +1,167 @@
+/* ==========================================================================
+   THEME: ANIME.JS (Kinetic Springs & Coordinated Choreography)
+   ========================================================================== */
+
+html[data-theme="animejs"] {
+  --ani-bg-base: #0b0f19;
+  --ani-bg-surface: #131b2e;
+  --ani-bg-subtle: #1e293b;
+  --ani-bg-hover: #24334a;
+  --ani-border: #334155;
+  --ani-border-subtle: rgba(255, 255, 255, 0.08);
+  
+  --ani-ink-main: #ffffff;
+  --ani-ink-muted: #94a3b8;
+  --ani-ink-subtle: #64748b;
+  
+  --ani-accent: #f59e0b;
+  --ani-accent-glow: rgba(245, 158, 11, 0.35);
+  
+  --ani-success-bg: rgba(16, 185, 129, 0.15);
+  --ani-success-border: #10b981;
+  --ani-success-ink: #34d399;
+  
+  --ani-danger-bg: rgba(244, 63, 94, 0.15);
+  --ani-danger-border: #f43f5e;
+  --ani-danger-ink: #fb7185;
+  
+  --ani-shadow-md: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+}
+
+html[data-theme="animejs"] body {
+  background-color: var(--ani-bg-base);
+  color: var(--ani-ink-main);
+  background-image: linear-gradient(to bottom, #0f172a, #0b0f19);
+}
+
+/* Floating Switcher */
+html[data-theme="animejs"] .theme-switcher-bar {
+  background: rgba(19, 27, 46, 0.85);
+  border: 1px solid var(--ani-border);
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.5);
+}
+
+html[data-theme="animejs"] .theme-pill-btn {
+  color: var(--ani-ink-muted);
+}
+
+html[data-theme="animejs"] .theme-pill-btn.active {
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+  color: #ffffff;
+  box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+}
+
+/* Anime Header */
+.ani-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 28px;
+  padding: 20px 24px;
+  background: var(--ani-bg-surface);
+  border: 1px solid var(--ani-border);
+  border-radius: 20px;
+  box-shadow: var(--ani-shadow-md);
+  opacity: 0; /* Animated in by Anime.js */
+  transform: translateY(20px);
+}
+
+.ani-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
+}
+
+/* Anime Hero Card */
+.ani-hero-card {
+  background: var(--ani-bg-surface);
+  border: 1px solid var(--ani-border);
+  border-radius: 24px;
+  padding: 32px;
+  box-shadow: var(--ani-shadow-md);
+  margin-bottom: 28px;
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.ani-hero-amount {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+}
+
+.ani-hero-amount.overspent {
+  color: var(--ani-danger-ink);
+}
+
+/* Animated Category Cards */
+.ani-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.ani-cat-card {
+  background: var(--ani-bg-surface);
+  border: 1px solid var(--ani-border);
+  border-radius: 18px;
+  padding: 18px;
+  opacity: 0;
+  transform: scale(0.95);
+  transition: border-color 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ani-cat-card:hover {
+  transform: scale(1.03);
+  border-color: var(--ani-accent);
+}
+
+/* Anime Table Card */
+.ani-table-card {
+  background: var(--ani-bg-surface);
+  border: 1px solid var(--ani-border);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: var(--ani-shadow-md);
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.ani-table-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--ani-border-subtle);
+  transition: background-color 0.15s ease;
+}
+
+.ani-table-row:last-child {
+  border-bottom: none;
+}
+
+.ani-table-row:hover {
+  background: var(--ani-bg-hover);
+}
+
+/* Empty State Card */
+html[data-theme="animejs"] .portal-empty-card {
+  background: var(--ani-bg-surface);
+  border: 1px solid var(--ani-border);
+  box-shadow: var(--ani-shadow-md);
+  color: var(--ani-ink-main);
+}
+
+html[data-theme="animejs"] .portal-empty-desc {
+  color: var(--ani-ink-muted);
+}

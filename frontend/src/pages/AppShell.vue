@@ -28,7 +28,7 @@
           :key="item.route"
           :to="{ name: item.route }"
           :title="effectiveCollapsed ? item.label : undefined"
-          class="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors"
+          class="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm leading-normal transition-colors"
           :class="effectiveCollapsed ? 'justify-center px-0' : ''"
           :aria-label="item.label"
         >
@@ -40,7 +40,7 @@
           />
           <span
             v-if="!effectiveCollapsed"
-            class="truncate"
+            class="min-w-0 flex-1 truncate py-0.5 leading-normal"
             :class="isActive(item.route) ? 'font-medium text-ink-gray-9' : 'text-ink-gray-7'"
           >{{ item.label }}</span>
         </router-link>
@@ -48,17 +48,17 @@
 
       <div class="space-y-1 border-t border-outline-gray-1 p-2">
         <button
-          class="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-ink-gray-7 transition-colors hover:bg-surface-gray-2"
+          class="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm leading-normal text-ink-gray-7 transition-colors hover:bg-surface-gray-2"
           :class="effectiveCollapsed ? 'justify-center px-0' : ''"
           :title="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
           @click="toggleTheme"
         >
           <Sun v-if="isDark" class="size-4 flex-shrink-0" />
           <Moon v-else class="size-4 flex-shrink-0" />
-          <span v-if="!effectiveCollapsed">{{ isDark ? 'Light mode' : 'Dark mode' }}</span>
+          <span v-if="!effectiveCollapsed" class="min-w-0 flex-1 truncate py-0.5 text-left leading-normal">{{ isDark ? 'Light mode' : 'Dark mode' }}</span>
         </button>
         <button
-          class="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-ink-gray-7 transition-colors hover:bg-surface-gray-2"
+          class="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm leading-normal text-ink-gray-7 transition-colors hover:bg-surface-gray-2"
           :class="effectiveCollapsed ? 'justify-center px-0' : ''"
           :title="isMobile ? 'Close menu' : (collapsed ? 'Expand sidebar' : 'Collapse sidebar')"
           @click="toggleSidebar"
@@ -66,7 +66,7 @@
           <X v-if="isMobile && mobileNavOpen" class="size-4 flex-shrink-0" />
           <PanelLeftOpen v-else-if="isMobile || collapsed" class="size-4 flex-shrink-0" />
           <PanelLeftClose v-else class="size-4 flex-shrink-0" />
-          <span v-if="!effectiveCollapsed">{{ isMobile ? 'Close' : (collapsed ? 'Expand' : 'Collapse') }}</span>
+          <span v-if="!effectiveCollapsed" class="min-w-0 flex-1 truncate py-0.5 text-left leading-normal">{{ isMobile ? 'Close' : (collapsed ? 'Expand' : 'Collapse') }}</span>
         </button>
       </div>
     </aside>

@@ -22,14 +22,19 @@ _API_UNSET = "__unset__"
 def create_budget(
     category,
     allocated_amount,
-    period,
-    start_date,
-    end_date,
+    period="Monthly",
+    start_date=None,
+    end_date=None,
     alert_threshold_pct=90,
     notes=None,
     dependent=None,
 ):
     user = _current_user()
+    if not start_date:
+        start_date = frappe.utils.today()
+    if not end_date:
+        end_date = frappe.utils.get_last_day(start_date)
+    dependent = dependent or None
     try:
         resolved_category = resolve_category_id(user, category)
         return BudgetService.create_budget(
@@ -122,6 +127,7 @@ def restore_budget(budget, dependent=None):
 @frappe.whitelist(methods=["GET"])
 def list_budgets(category=None, active_only=0, dependent=None):
     user = _current_user()
+    dependent = dependent or None
     try:
         resolved_category = resolve_category_id(user, category) if category else None
         return BudgetService.list_budgets(
@@ -137,6 +143,7 @@ def list_budgets(category=None, active_only=0, dependent=None):
 @frappe.whitelist(methods=["GET"])
 def search_budgets(search_text=None, active_only=1, dependent=None):
     user = _current_user()
+    dependent = dependent or None
     try:
         return BudgetService.search_budgets(
             user,
@@ -151,6 +158,7 @@ def search_budgets(search_text=None, active_only=1, dependent=None):
 @frappe.whitelist(methods=["GET"])
 def get_budget_usage(category, dependent=None):
     user = _current_user()
+    dependent = dependent or None
     try:
         resolved_category = resolve_category_id(user, category)
         usage = BudgetService.get_budget_usage(user, resolved_category, dependent=dependent)

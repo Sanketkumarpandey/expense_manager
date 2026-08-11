@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en" data-theme="standard">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% if found %}{{ portal_data.dependent.dependent_name }} · Pocket Money Portal{% else %}Dependent Portal · Expenso{% endif %}</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  
+  <!-- Modular Theme Stylesheets -->
+  <link rel="stylesheet" href="/assets/expense_manager/dependent_portal/shared/shared.css">
+  <link rel="stylesheet" href="/assets/expense_manager/dependent_portal/themes/standard/standard.css">
+  <link rel="stylesheet" href="/assets/expense_manager/dependent_portal/themes/lottie/lottie.css">
+  <link rel="stylesheet" href="/assets/expense_manager/dependent_portal/themes/threejs/threejs.css">
+  <link rel="stylesheet" href="/assets/expense_manager/dependent_portal/themes/anime/anime.css">
+</head>
+<body>
+  <div class="portal-root">
+    <div class="portal-container">
+      {% if found %}
+        <!-- Active Theme Viewport Container -->
+        <main id="theme-viewport">
+          <!-- Baseline server-rendered skeleton / fallback -->
+          <div class="std-view">
+            <header class="std-header">
+              <div class="std-brand">
+                <div class="std-avatar">👤</div>
+                <div>
+                  <h1 class="std-title">{{ portal_data.dependent.dependent_name }}</h1>
+                  <p class="std-subtitle">Pocket Money & Personal Finance Portal</p>
+                </div>
+              </div>
+            </header>
+            <div class="std-hero-card">
+              <p class="std-hero-label">Pocket Money Balance</p>
+              <p class="std-hero-amount">₹{{ "%.2f"|format((portal_data.pocket_money and portal_data.pocket_money.remaining_amount) or 0) }}</p>
+            </div>
+            <section class="std-section">
+              <h2 class="std-section-title">Allowed Categories</h2>
+              <div class="std-grid-3">
+                {% for cat in portal_data.allowed_categories %}
+                  <div class="std-cat-card">
+                    <p class="std-cat-name">{{ cat.category_name }}</p>
+                  </div>
+                {% endfor %}
+              </div>
+            </section>
+            <section class="std-section">
+              <h2 class="std-section-title">Recent Expenses</h2>
+              <div class="std-table-card">
+                {% for exp in portal_data.recent_expenses %}
+                  <div class="std-table-row">
+                    <p class="std-cat-name">{{ exp.description or exp.category_name }}</p>
+                    <p class="std-stat-val">₹{{ "%.2f"|format(exp.amount) }}</p>
+                  </div>
+                {% endfor %}
+              </div>
+            </section>
+          </div>
+        </main>
+
+        <!-- Floating Modular Theme Switcher -->
+        <div class="theme-switcher-bar" role="toolbar" aria-label="Theme Selection">
+          <button type="button" class="theme-pill-btn active" data-set-theme="standard">
+            <span>⚡</span> Standard
+          </button>
+          <button type="button" class="theme-pill-btn" data-set-theme="lottie">
+            <span>🎬</span> Lottie
+          </button>
+          <button type="button" class="theme-pill-btn" data-set-theme="threejs">
+            <span>🌐</span> Three.js
+          </button>
+          <button type="button" class="theme-pill-btn" data-set-theme="animejs">
+            <span>✨</span> Anime.js
+          </button>
+        </div>
+
+        <!-- Safe Portal Data Payload -->
+        <script id="portal-data-payload" type="application/json">
+          {{ portal_data | tojson }}
+        </script>
+
+        <!-- Initialize Modular Theme Shell -->
+        <script type="module">
+          import { ThemeShell } from '/assets/expense_manager/dependent_portal/shared/theme_shell.js';
+
+          try {
+            const rawData = document.getElementById('portal-data-payload').textContent;
+            const data = JSON.parse(rawData);
+            ThemeShell.init(data);
+          } catch (err) {
+            console.error('Failed to initialize Dependent Portal ThemeShell:', err);
+          }
+        </script>
+
+      {% else %}
+        <!-- Empty / Neutral State -->
+        <div class="portal-empty-card">
+          <div class="portal-empty-icon">🔒</div>
+          <h1 class="portal-empty-title">Dependent Link Required</h1>
+          <p class="portal-empty-desc">
+            To view your pocket money, allowance balance, and spending history, please use the private link provided by your guardian.
+          </p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>

@@ -6,6 +6,7 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "expense_details_section",
   "owner_user",
   "expense_date",
   "column_break_gteg",
@@ -58,7 +59,8 @@
   },
   {
    "fieldname": "section_break_bexs",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Payment Details"
   },
   {
    "fieldname": "description",
@@ -83,7 +85,8 @@
   },
   {
    "fieldname": "section_break_swae",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Voice Transcript"
   },
   {
    "fieldname": "voice_transcript",
@@ -95,12 +98,17 @@
    "fieldtype": "Link",
    "label": "Dependent",
    "options": "Dependent"
+  },
+  {
+   "fieldname": "expense_details_section",
+   "fieldtype": "Section Break",
+   "label": "Expense Details"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-07-23 15:12:48.190051",
+ "modified": "2026-08-10 17:14:56.347627",
  "modified_by": "Administrator",
  "module": "Expense Manager",
  "name": "Expense",
@@ -121,14 +129,12 @@
   },
   {
    "create": 1,
-   "delete": 0,
    "email": 1,
    "export": 1,
    "print": 1,
    "read": 1,
    "report": 1,
    "role": "Expense Manager User",
-   "share": 0,
    "write": 1
   }
  ],

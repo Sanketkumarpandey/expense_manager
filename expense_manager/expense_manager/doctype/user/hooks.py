@@ -1,8 +1,7 @@
 import frappe
 
+from expense_manager.constants.roles import GUARDIAN_ROLE
 from expense_manager.services.category_service import CategoryService
-
-GUARDIAN_ROLE = "Expense Manager User"
 
 
 def user_on_update(doc, method=None):

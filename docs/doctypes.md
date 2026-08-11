@@ -5,6 +5,33 @@ fields list their options. Required fields are marked **(required)**.
 All DocTypes are restricted to **System Manager** role only in Desk.
 Ownership is enforced at the service layer.
 
+## Access model — deliberate decision, NOT an oversight
+
+Frappe Desk (`/app`) is deliberately **admin-only** for this app. The two
+personas are served entirely by non-Desk surfaces: guardians use the Vue 3
+SPA (`/expense_manager`, backed by the whitelisted `expense_manager.api.*`
+REST methods) and dependents use the Telegram bot. There is **no** product
+requirement for a guardian or dependent to browse Desk — reports, budgets,
+dependents, pocket money, and expense entry all have SPA/Telegram equivalents
+that enforce ownership server-side per `frappe.session.user`.
+
+Consequently, every DocType except `Expense` is **System Manager-only** in
+its permission table (`Category`, `Budget`, `Dependent`, `Dependent Category`,
+`Pocket Money Allocation`, `Telegram Link`, `AI Settings`), and so are the
+Desk reports and the Desk Workspace. This is intentional and should not be
+"fixed" by adding `Expense Manager User` permission rows. `Expense` is the
+**only** exception, and it carries an `Expense Manager User` entry only
+because it was exposed deliberately under strict row-level scoping.
+
+**If a future phase ever needs to expose another surface**, it must follow
+the exact `Expense` pattern from the F-2 security fix — add the
+`permission_query_conditions` (`*_permission_query_conditions`) and
+`has_permission` (`*_has_permission`) hooks in `hooks.py` / `permissions.py`
+so every list/read/write/delete is scoped to the session guardian's
+`owner_user`, read-only unless a specific write case is justified. A blanket
+grant without those row-level hooks is the F-2 vulnerability and is never
+acceptable.
+
 ---
 
 ## 1. Category

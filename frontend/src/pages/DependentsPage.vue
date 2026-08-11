@@ -129,25 +129,74 @@
                 </div>
               </div>
 
-              <div v-if="balanceOf(dep.name)" class="mt-2 space-y-1 text-xs">
-                <div class="flex justify-between text-ink-gray-7">
+              <div v-if="balanceOf(dep.name)" class="mt-2 space-y-1.5 text-xs">
+                <div class="flex justify-between items-center text-ink-gray-7">
                   <span>Period: {{ balanceOf(dep.name).allocation_period || 'Monthly' }}</span>
-                  <span class="font-medium" :class="balanceOf(dep.name).remaining_amount < 0 ? 'text-ink-red-5' : 'text-ink-gray-9'">
-                    Remaining: {{ inr(balanceOf(dep.name).remaining_amount) }}
+                  <span
+                    class="font-medium"
+                    :class="balanceOf(dep.name).remaining_amount < 0 ? 'text-ink-red-5 font-semibold' : 'text-ink-gray-9'"
+                  >
+                    <span v-if="balanceOf(dep.name).remaining_amount < 0">
+                      Over by {{ inr(Math.abs(balanceOf(dep.name).remaining_amount)) }}
+                    </span>
+                    <span v-else>
+                      Remaining: {{ inr(balanceOf(dep.name).remaining_amount) }}
+                    </span>
                   </span>
                 </div>
                 <div class="h-2.5 overflow-hidden rounded-full bg-surface-gray-2">
                   <div
-                    class="h-full rounded-full bg-surface-blue-3 transition-all"
+                    class="h-full rounded-full transition-all"
+                    :class="[
+                      balanceOf(dep.name).remaining_amount < 0
+                        ? 'bg-surface-red-6'
+                        : balancePct(dep.name) >= 90
+                          ? 'bg-surface-amber-5'
+                          : 'bg-surface-blue-3'
+                    ]"
                     :style="{ width: `${Math.min(balancePct(dep.name), 100)}%` }"
                   />
                 </div>
-                <p class="text-xs text-ink-gray-5">
-                  Allocated: {{ inr(balanceOf(dep.name).allocated_amount) }} · Spent: {{ inr(balanceOf(dep.name).spent_amount) }}
-                </p>
+                <div class="flex justify-between text-xs text-ink-gray-5">
+                  <span>Allocated: {{ inr(balanceOf(dep.name).allocated_amount) }}</span>
+                  <span>Spent: {{ inr(balanceOf(dep.name).spent_amount) }} ({{ balancePct(dep.name) }}%)</span>
+                </div>
               </div>
               <div v-else class="mt-2 text-xs text-ink-gray-5">
                 No active pocket money allocation set.
+              </div>
+            </div>
+
+            <!-- Dependent Portal Link Row -->
+            <div class="mt-3 flex items-center justify-between gap-2 rounded-md bg-surface-gray-1 px-3 py-2 text-xs">
+              <div class="flex min-w-0 items-center gap-2 text-ink-gray-7">
+                <ExternalLink class="size-3.5 shrink-0 text-ink-blue-4" />
+                <span class="truncate font-mono text-[11px] text-ink-gray-6">
+                  /dependent/{{ dep.access_token ? dep.access_token.slice(0, 12) + '…' : dep.name }}
+                </span>
+              </div>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <Button
+                  variant="subtle"
+                  size="sm"
+                  class="h-7 px-2 text-xs text-ink-gray-7 hover:text-ink-blue-4"
+                  title="Copy full portal link"
+                  @click="copyPortalLink(dep)"
+                >
+                  <template #prefix>
+                    <Copy class="size-3.5" />
+                  </template>
+                  Copy link
+                </Button>
+                <a
+                  :href="getPortalUrl(dep)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex h-7 items-center justify-center rounded-md px-2 text-xs font-medium text-ink-gray-7 hover:bg-surface-gray-2 hover:text-ink-blue-4 transition-colors"
+                  title="Open portal in new tab"
+                >
+                  <ExternalLink class="size-3.5" />
+                </a>
               </div>
             </div>
 
@@ -191,6 +240,8 @@ import RotateCcw from '~icons/lucide/rotate-ccw'
 import Trash2 from '~icons/lucide/trash-2'
 import RefreshCw from '~icons/lucide/refresh-cw'
 import Coins from '~icons/lucide/coins'
+import Copy from '~icons/lucide/copy'
+import ExternalLink from '~icons/lucide/external-link'
 import ResourceState from '@/components/ResourceState.vue'
 import DependentFormDialog from '@/components/DependentFormDialog.vue'
 import PocketMoneyFormDialog from '@/components/PocketMoneyFormDialog.vue'
@@ -418,8 +469,42 @@ const inr = (value) =>
     maximumFractionDigits: 2,
   }).format(value || 0)
 
+function getPortalUrl(dep) {
+  const token = dep.access_token || dep.name
+  return `${window.location.origin}/dependent/${token}`
+}
+
+async function copyPortalLink(dep) {
+  const url = getPortalUrl(dep)
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(url)
+    } else {
+      const el = document.createElement('textarea')
+      el.value = url
+      document.body.appendChild(el)
+      el.select()
+      document.execCommand('copy')
+      document.body.removeChild(el)
+    }
+    toast.success(`Portal link for ${dep.dependent_name} copied!`)
+  } catch (e) {
+    toast.error('Could not copy link to clipboard.')
+  }
+}
+
 function rowActions(dep) {
   const actions = [
+    {
+      label: 'Copy portal link',
+      icon: Copy,
+      onClick: () => copyPortalLink(dep),
+    },
+    {
+      label: 'Open portal',
+      icon: ExternalLink,
+      onClick: () => window.open(getPortalUrl(dep), '_blank'),
+    },
     {
       label: 'Edit',
       icon: Pencil,

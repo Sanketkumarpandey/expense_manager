@@ -1,0 +1,193 @@
+/* ==========================================================================
+   THEME: THREE.JS (3D Data Constellation & Spatial Cyberpunk)
+   ========================================================================== */
+
+html[data-theme="threejs"] {
+  --3d-bg-base: #060911;
+  --3d-bg-surface: rgba(13, 18, 30, 0.75);
+  --3d-bg-subtle: rgba(22, 30, 49, 0.6);
+  --3d-bg-hover: rgba(30, 41, 59, 0.8);
+  --3d-border: rgba(56, 189, 248, 0.25);
+  --3d-border-subtle: rgba(255, 255, 255, 0.08);
+  
+  --3d-ink-main: #f8fafc;
+  --3d-ink-muted: #94a3b8;
+  --3d-ink-subtle: #64748b;
+  
+  --3d-accent: #38bdf8;
+  --3d-accent-glow: rgba(56, 189, 248, 0.35);
+  
+  --3d-success-bg: rgba(6, 78, 59, 0.4);
+  --3d-success-border: rgba(52, 211, 153, 0.4);
+  --3d-success-ink: #34d399;
+  
+  --3d-danger-bg: rgba(127, 29, 29, 0.4);
+  --3d-danger-border: rgba(248, 113, 113, 0.4);
+  --3d-danger-ink: #f87171;
+  
+  --3d-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(56, 189, 248, 0.1);
+}
+
+html[data-theme="threejs"] body {
+  background-color: var(--3d-bg-base);
+  color: var(--3d-ink-main);
+  overflow-x: hidden;
+}
+
+/* Background 3D Canvas */
+#three-bg-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1;
+  pointer-events: auto;
+  display: block;
+}
+
+/* Floating Switcher */
+html[data-theme="threejs"] .theme-switcher-bar {
+  background: rgba(13, 18, 30, 0.85);
+  border: 1px solid var(--3d-border);
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.2);
+}
+
+html[data-theme="threejs"] .theme-pill-btn {
+  color: var(--3d-ink-muted);
+}
+
+html[data-theme="threejs"] .theme-pill-btn.active {
+  background: linear-gradient(135deg, #0284c7, #38bdf8);
+  color: #ffffff;
+  box-shadow: 0 0 15px rgba(56, 189, 248, 0.5);
+}
+
+/* Three.js Header */
+.three-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 28px;
+  padding: 20px 24px;
+  background: var(--3d-bg-surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--3d-border);
+  border-radius: 20px;
+  box-shadow: var(--3d-shadow);
+}
+
+.three-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid var(--3d-border);
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
+}
+
+/* Three.js Hero Card */
+.three-hero-card {
+  background: var(--3d-bg-surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--3d-border);
+  border-radius: 24px;
+  padding: 32px;
+  box-shadow: var(--3d-shadow);
+  margin-bottom: 28px;
+  position: relative;
+  overflow: hidden;
+}
+
+.three-hero-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #38bdf8, #818cf8, transparent);
+}
+
+.three-hero-amount {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+  text-shadow: 0 0 20px rgba(56, 189, 248, 0.5);
+}
+
+.three-hero-amount.overspent {
+  color: #f87171;
+  text-shadow: 0 0 20px rgba(248, 113, 113, 0.6);
+}
+
+/* Three.js Categories Grid */
+.three-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.three-cat-card {
+  background: var(--3d-bg-surface);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--3d-border-subtle);
+  border-radius: 18px;
+  padding: 18px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.three-cat-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--3d-accent);
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
+}
+
+/* Table Card */
+.three-table-card {
+  background: var(--3d-bg-surface);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--3d-border);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: var(--3d-shadow);
+}
+
+.three-table-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--3d-border-subtle);
+  transition: background-color 0.15s ease;
+}
+
+.three-table-row:last-child {
+  border-bottom: none;
+}
+
+.three-table-row:hover {
+  background: var(--3d-bg-hover);
+}
+
+/* Empty State Card */
+html[data-theme="threejs"] .portal-empty-card {
+  background: var(--3d-bg-surface);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--3d-border);
+  box-shadow: var(--3d-shadow);
+  color: var(--3d-ink-main);
+}
+
+html[data-theme="threejs"] .portal-empty-desc {
+  color: var(--3d-ink-muted);
+}

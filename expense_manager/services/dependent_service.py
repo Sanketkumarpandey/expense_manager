@@ -299,6 +299,7 @@ class DependentService:
                 "relationship",
                 "default_monthly_allowance",
                 "allow_carry_forward",
+                "access_token",
                 "is_active",
                 "total_savings",
                 "creation",

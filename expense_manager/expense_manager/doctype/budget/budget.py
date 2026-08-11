@@ -1,9 +1,7 @@
-# Copyright (c) 2026, Sanket Kumar and contributors
-# For license information, please see license.txt
-
 import frappe
 from frappe import _
 from frappe.model.document import Document
+from frappe.utils import getdate
 
 
 class Budget(Document):
@@ -66,7 +64,7 @@ class Budget(Document):
             frappe.throw(_("Alert Threshold % must be between 1 and 100."))
 
     def validate_dates(self):
-        if self.start_date > self.end_date:
+        if getdate(self.start_date) > getdate(self.end_date):
             frappe.throw(_("Start Date cannot be after End Date."))
 
     def validate_duplicate_budget(self):

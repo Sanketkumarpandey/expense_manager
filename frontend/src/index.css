@@ -116,3 +116,17 @@ body {
 .PopoverContent .text-3xl {
   font-size: 1.5625rem;
 }
+
+/*
+ * Prevent glyph descender clipping ('g', 'y', 'p', 'j', 'q') across navigation labels and buttons
+ */
+aside nav a,
+aside button {
+  line-height: 1.35;
+}
+
+aside nav a span,
+aside button span {
+  line-height: 1.35;
+}
+

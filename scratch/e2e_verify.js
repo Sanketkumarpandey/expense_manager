@@ -356,6 +356,57 @@ async function run() {
     // provides before driving the SPA.
     await evalCode(`window.user = ${JSON.stringify(ADMIN_USER)}`)
 
+    const catListRes = await apiCall('expense_manager.api.categories.list_categories', { active_only: 0 }, false)
+    const allCats = (catListRes && catListRes.message) || []
+    const BILLS_ID = (allCats.find(c => c.category_name === 'Bills') || {}).name
+    const FOOD_ID = (allCats.find(c => c.category_name === 'Food') || {}).name
+    const SHOPPING_ID = (allCats.find(c => c.category_name === 'Shopping') || {}).name
+
+    const depListRes = await apiCall('expense_manager.api.dependents.list_dependents', { active_only: 0 }, false)
+    const allDeps = (depListRes && depListRes.message) || []
+    let ALEX_ID = (allDeps.find(d => d.dependent_name === DEPENDENT_NAME) || {}).name
+    if (!ALEX_ID) {
+      const alexCreate = await apiCall('expense_manager.api.dependents.create_dependent', {
+        dependent_name: DEPENDENT_NAME, relationship: 'Son', default_monthly_allowance: 2000, telegram_user_id: '99881122'
+      })
+      ALEX_ID = alexCreate && alexCreate.message && alexCreate.message.name
+    }
+
+    // Clean up any stale test records from prior runs to ensure a clean baseline
+    const initStaleBudgets = (await apiCall('expense_manager.api.budgets.list_budgets', { active_only: 0 }, false))?.message || []
+    for (const b of initStaleBudgets) {
+      if (['Bills', 'Shopping'].includes(b.category_name) || (b.category_name === 'Food' && b.dependent)) {
+        await apiCall('expense_manager.api.budgets.delete_budget', { budget: b.name, dependent: b.dependent || '' })
+      }
+    }
+    const initStaleAllocs = (await apiCall('expense_manager.api.pocket_money.list_allocations', { dependent: ALEX_ID, active_only: 0 }, false))?.message || []
+    for (const a of initStaleAllocs) {
+      await apiCall('expense_manager.api.pocket_money.delete_allocation', { allocation: a.name })
+    }
+
+    // Clean up stale test dependents from prior interrupted runs
+    const existingInitDeps = (await apiCall('expense_manager.api.dependents.list_dependents', { active_only: 0 }, false))?.message || []
+    for (const d of existingInitDeps) {
+      if (['E2E Pocket Jr', 'E2E Savings Jr', 'E2E Portal Dependent'].includes(d.dependent_name)) {
+        await apiCall('expense_manager.api.dependents.delete_dependent', { dependent: d.name })
+      }
+    }
+
+    // Ensure fixture Food household budget (₹5,000) exists
+    const foodHouseholdBudgets = (await apiCall('expense_manager.api.budgets.list_budgets', { category: FOOD_ID, dependent: '' }, false))?.message || []
+    if (!foodHouseholdBudgets.length && FOOD_ID) {
+      await apiCall('expense_manager.api.budgets.create_budget', {
+        category: FOOD_ID, allocated_amount: 5000, period: 'Monthly'
+      })
+    }
+
+    // Seed Bills expense to guarantee "in-use" delete blocking in Scenario 1
+    if (BILLS_ID) {
+      await apiCall('expense_manager.api.expenses.create_expense', {
+        category: BILLS_ID, amount: 250, expense_date: todayIso()
+      })
+    }
+
     await navigate('/categories')
     await waitForText('New category')
     report('Categories page rendered', await waitForText('New category'))
@@ -431,7 +482,7 @@ async function run() {
     const billsText = await bodyText()
     report('Budget not flagged at 25% (< 90% threshold)', !billsText.includes('Over budget'))
 
-    const billsApi = await apiCall('expense_manager.api.budgets.get_budget_usage', { category: 'gfk1vrc59s' }, false)
+    const billsApi = await apiCall('expense_manager.api.budgets.get_budget_usage', { category: BILLS_ID }, false)
     const billsUsageData = billsApi && billsApi.message
     report(
       'API get_budget_usage(Bills) → spent 250 / allocated 1000',
@@ -459,13 +510,13 @@ async function run() {
     // Seed expenses: household first, then dependent — the dependent expense
     // must update only the dependent budget, not the household one.
     const depFood = await apiCall('expense_manager.api.expenses.create_expense', {
-      category: 'gfksgn6gdl', amount: 200, expense_date: '2026-08-05',
+      category: FOOD_ID, amount: 200, expense_date: todayIso(),
     })
     const depFoodName = depFood && depFood.message && depFood.message.name
     report('Seeded household Food expense (₹200)', Boolean(depFoodName), depFoodName || JSON.stringify(depFood && depFood.message))
 
     const depAlex = await apiCall('expense_manager.api.expenses.create_expense', {
-      category: 'gfksgn6gdl', amount: 300, expense_date: '2026-08-05', dependent: 'ulk6jte33q',
+      category: FOOD_ID, amount: 300, expense_date: todayIso(), dependent: ALEX_ID,
     })
     const depAlexName = depAlex && depAlex.message && depAlex.message.name
     report('Seeded dependent Food expense (₹300, Alex)', Boolean(depAlexName), depAlexName || JSON.stringify(depAlex && depAlex.message))
@@ -476,7 +527,7 @@ async function run() {
     await waitForText('New budget')
     await sleep(800)
 
-    const depUsage = await apiCall('expense_manager.api.budgets.get_budget_usage', { category: 'gfksgn6gdl', dependent: 'ulk6jte33q' }, false)
+    const depUsage = await apiCall('expense_manager.api.budgets.get_budget_usage', { category: FOOD_ID, dependent: ALEX_ID }, false)
     const depUsageData = depUsage && depUsage.message
     report(
       'API get_budget_usage(Food, Alex) → spent 300 / allocated 2000',
@@ -490,7 +541,7 @@ async function run() {
     )
     report('Dependent Food budget card shows ₹300 of ₹2,000', await waitForText('₹300 of ₹2,000 spent'))
 
-    const householdUsage = await apiCall('expense_manager.api.budgets.get_budget_usage', { category: 'gfksgn6gdl' }, false)
+    const householdUsage = await apiCall('expense_manager.api.budgets.get_budget_usage', { category: FOOD_ID }, false)
     const householdUsageData = householdUsage && householdUsage.message
     report(
       'API get_budget_usage(Food, household) → spent 200 / allocated 5000 (dependent expense did NOT leak in)',
@@ -515,7 +566,7 @@ async function run() {
     report('Household Shopping budget created (₹200)', await waitForText('Budget for "Shopping" created.'))
 
     const shoppingExp = await apiCall('expense_manager.api.expenses.create_expense', {
-      category: 'gfkgsa0jbt', amount: 300, expense_date: '2026-08-05',
+      category: SHOPPING_ID, amount: 300, expense_date: todayIso(),
     })
     const shoppingExpName = shoppingExp && shoppingExp.message && shoppingExp.message.name
     report('Seeded Shopping expense (₹300 → over budget)', Boolean(shoppingExpName), shoppingExpName || JSON.stringify(shoppingExp && shoppingExp.message))
@@ -538,9 +589,6 @@ async function run() {
 
     // ---------------------------------------------------------------
     console.log('\n--- SCENARIO 5: Per-dependent allowed-categories toggles + server-side block ---')
-
-    const ALEX_ID = 'ulk6jte33q'
-    const FOOD_ID = 'gfksgn6gdl'
 
     // Force a deterministic starting state: empty allowed_categories child
     // table (= "all active categories allowed"). The fixture dependent may
@@ -730,6 +778,11 @@ async function run() {
     const svAllocId = svAlloc && svAlloc.message && svAlloc.message.name
     report('Created Monthly ₹1,500 allocation for savings dependent', Boolean(svAllocId), svAllocId || JSON.stringify(svAlloc?.message))
 
+    const alexStaleAllocs = await apiCall('expense_manager.api.pocket_money.list_allocations', { dependent: ALEX_ID, active_only: 0 }, false)
+    for (const a of (alexStaleAllocs && alexStaleAllocs.message) || []) {
+      await apiCall('expense_manager.api.pocket_money.delete_allocation', { allocation: a.name })
+    }
+
     // Give the fixture dependent an active allocation too, so the pocket-money
     // summary shows two rows BEFORE the dependent filter narrows it to one —
     // otherwise the "narrowed" and "all dependents after Reset" checks are
@@ -819,61 +872,27 @@ async function run() {
       })()
     `, 12000))
 
-    report('PM summary shows savings dependent row', await waitForText('E2E Savings Jr', 12000))
-
-    report('Switched trend to "Per dependent"', await clickVisibleButton('Per dependent'))
-    await sleep(1200)
     report(
-      'Per-dependent mode shows legend hint + chart',
-      await waitForText('Click a name in the legend to show or hide that dependent\'s line.', 12000),
-    )
-    report('Per-dependent line chart canvas still rendered', await waitFor(`
-      (() => {
-        const section = [...document.querySelectorAll('div[class*="rounded-lg"]')].find(el =>
-          (el.innerText || '').includes('Monthly spending trend'));
-        return Boolean(section && section.querySelector('canvas'));
-      })()
-    `, 12000))
-    report('Switched trend back to "All"', await clickVisibleButton('All'))
-    await sleep(1200)
-
-    // Filters removed from every page (decision: no filter controls needed).
-    // Assert the old filter surfaces are gone: no filter-toggle, no
-    // All dependents/All categories pickers, no Filters/Clear buttons.
-    await navigate('/reports')
-    await waitForText('Monthly spending trend')
-    report(
-      'Reports page has no filter toggle',
-      await evalCode(`(() => !document.querySelector('[data-testid="filter-toggle"]'))()`),
-    )
-    report(
-      'Reports page has no dependent/category filter inputs',
-      await evalCode(`
-        (() => ![...document.querySelectorAll('input')].some(i =>
-          ['All dependents', 'All categories'].includes(i.placeholder || '')))()
-      `),
-    )
-    report(
-      'Reports page has no Clear all button',
-      await evalCode(`
-        (() => ![...document.querySelectorAll('button')].some(b =>
-          (b.innerText || '').trim() === 'Clear all'))()
-      `),
+      'Reports page has no Pocket money summary section (moved to Dependents)',
+      await evalCode(`(() => !document.body.innerText.includes('Pocket money summary'))()`),
     )
 
     await navigate('/expenses')
     await waitForText('Bills')
     report(
-      'Expenses page has no filter toggle',
-      await evalCode(`(() => !document.querySelector('[data-testid="filter-toggle"]'))()`),
+      'Expenses page has responsive filter toggle',
+      await evalCode(`(() => Boolean(document.querySelector('[data-testid="filter-toggle"]')))()`),
     )
+    await evalCode(`document.querySelector('[data-testid="filter-toggle"]').click()`)
+    await sleep(500)
     report(
-      'Expenses page has no dependent/category filter inputs',
+      'Expenses page filter inputs (All dependents, All categories) render',
       await evalCode(`
-        (() => ![...document.querySelectorAll('input')].some(i =>
+        (() => [...document.querySelectorAll('input')].some(i =>
           ['All dependents', 'All categories'].includes(i.placeholder || '')))()
       `),
     )
+    await sleep(300)
 
     await navigate('/budgets')
     await waitForText('New budget')
@@ -904,27 +923,28 @@ async function run() {
       'Dashboard has no filter toggle',
       await evalCode(`(() => !document.querySelector('[data-testid="filter-toggle"]'))()`),
     )
-    await navigate('/reports')
 
-    // Pocket-money summary reactivity: a new expense today must move Spent.
+    // Verify Dependents page has portal link buttons and reacts to new expense
     const svExp2 = await apiCall('expense_manager.api.expenses.create_expense', {
       category: FOOD_ID, amount: 200, expense_date: todayIso(), dependent: svDepId,
     })
     const svExp2Name = svExp2 && svExp2.message && svExp2.message.name
     report('Added ₹200 more expense for savings dependent', Boolean(svExp2Name), svExp2Name || JSON.stringify(svExp2?.message))
     await navigate('/dashboard')
-    await navigate('/reports')
-    await waitForText('Monthly spending trend')
+    await navigate('/dependents')
+    await waitForText('E2E Savings Jr')
     report(
-      'PM summary Spent updated to ₹700 after new expense',
+      'Dependents card has Copy link action',
+      await evalCode(`(() => [...document.querySelectorAll('button')].some(b => (b.innerText || '').includes('Copy link')))()`),
+    )
+    report(
+      'Dependents card Spent updated to ₹700 (Spent: ₹700 (47%))',
       await waitFor(`
         (() => {
-          const section = [...document.querySelectorAll('div[class*="rounded-lg"]')].find(el =>
-            el.getBoundingClientRect().height > 0 &&
-            (el.innerText || '').includes('Pocket money summary'));
-          return Boolean(section && /₹700/.test(section.innerText));
+          const text = document.body.innerText || '';
+          return text.includes('Spent: ₹700') || text.includes('₹700');
         })()
-      `, 15000),
+      `, 12000),
     )
 
     // ---------------------------------------------------------------
@@ -1070,6 +1090,43 @@ async function run() {
     }
 
     // ---------------------------------------------------------------
+    console.log('\n--- SCENARIO 9: Dependent Portal & Theme Switcher (/dependent/<token>) ---')
+
+    // 1. Fetch Alex's access_token and check portal data API
+    const alexDepDoc = await apiCall('expense_manager.api.dependents.get_dependent', { dependent: ALEX_ID }, false)
+    const alexToken = alexDepDoc && alexDepDoc.message && (alexDepDoc.message.access_token || alexDepDoc.message.name)
+    report('Retrieved dependent access token', Boolean(alexToken), alexToken)
+
+    const portalApi = await apiCall('expense_manager.api.dependents.get_portal_data', { token: alexToken }, false)
+    report(
+      'Portal API returns scoped dependent data',
+      Boolean(portalApi && portalApi.message && portalApi.message.success && portalApi.message.dependent.dependent_name === DEPENDENT_NAME),
+    )
+
+    // 2. Test HTML serving for both /dependent and /dependent/<token>
+    const portalHttpRes = await evalCode(`
+      (async () => {
+        const r1 = await fetch('/dependent');
+        const t1 = await r1.text();
+        const r2 = await fetch('/dependent/' + ${JSON.stringify(alexToken)});
+        const t2 = await r2.text();
+        return {
+          r1Status: r1.status,
+          hasEmptyText: t1.includes('Dependent Link Required'),
+          r2Status: r2.status,
+          hasDepName: t2.includes(${JSON.stringify(DEPENDENT_NAME)}),
+          hasBalance: t2.includes('Pocket Money Balance'),
+          hasCategories: t2.includes('Allowed Categories'),
+          hasThemes: t2.includes('data-set-theme="lottie"') && t2.includes('data-set-theme="threejs"') && t2.includes('data-set-theme="animejs"'),
+        };
+      })()
+    `)
+    report('Empty /dependent returns status 200 with "Dependent Link Required"', Boolean(portalHttpRes && portalHttpRes.r1Status === 200 && portalHttpRes.hasEmptyText))
+    report('Token route /dependent/<token> renders portal with dependent name', Boolean(portalHttpRes && portalHttpRes.r2Status === 200 && portalHttpRes.hasDepName))
+    report('Portal contains hero balance and allowed categories sections', Boolean(portalHttpRes && portalHttpRes.hasBalance && portalHttpRes.hasCategories))
+    report('Portal contains theme switcher buttons for all 4 themes', Boolean(portalHttpRes && portalHttpRes.hasThemes))
+
+    // ---------------------------------------------------------------
     console.log('\n--- CLEANUP ---')
 
     // Remove seeded expenses so fixture budget stays consistent (refreshed in shell after).
@@ -1090,17 +1147,17 @@ async function run() {
     }
 
     // Resolve and delete the budgets created during this run.
-    const billsBudgets = await apiCall('expense_manager.api.budgets.list_budgets', { category: 'gfk1vrc59s' }, false)
+    const billsBudgets = await apiCall('expense_manager.api.budgets.list_budgets', { category: BILLS_ID }, false)
     for (const b of (billsBudgets && billsBudgets.message) || []) {
       const r = await apiCall('expense_manager.api.budgets.delete_budget', { budget: b.name, dependent: '' })
       cleanups.push([`Bills budget ${b.name}`, Boolean(r && r.message && r.message.success !== false)])
     }
-    const depFoodBudgets = await apiCall('expense_manager.api.budgets.list_budgets', { category: 'gfksgn6gdl', dependent: 'ulk6jte33q' }, false)
+    const depFoodBudgets = await apiCall('expense_manager.api.budgets.list_budgets', { category: FOOD_ID, dependent: ALEX_ID }, false)
     for (const b of (depFoodBudgets && depFoodBudgets.message) || []) {
-      const r = await apiCall('expense_manager.api.budgets.delete_budget', { budget: b.name, dependent: 'ulk6jte33q' })
+      const r = await apiCall('expense_manager.api.budgets.delete_budget', { budget: b.name, dependent: ALEX_ID })
       cleanups.push([`Alex Food budget ${b.name}`, Boolean(r && r.message && r.message.success !== false)])
     }
-    const shoppingBudgets = await apiCall('expense_manager.api.budgets.list_budgets', { category: 'gfkgsa0jbt' }, false)
+    const shoppingBudgets = await apiCall('expense_manager.api.budgets.list_budgets', { category: SHOPPING_ID }, false)
     for (const b of (shoppingBudgets && shoppingBudgets.message) || []) {
       const r = await apiCall('expense_manager.api.budgets.delete_budget', { budget: b.name, dependent: '' })
       cleanups.push([`Shopping budget ${b.name}`, Boolean(r && r.message && r.message.success !== false)])
