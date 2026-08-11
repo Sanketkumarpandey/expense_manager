@@ -1,0 +1,323 @@
+/* ==========================================================================
+   THEME: STANDARD (Editorial Polish)
+   ========================================================================== */
+
+html[data-theme="standard"] {
+  --std-bg-base: #f8fafc;
+  --std-bg-surface: #ffffff;
+  --std-bg-subtle: #f1f5f9;
+  --std-bg-hover: #f8fafc;
+  --std-border: #e2e8f0;
+  --std-border-subtle: #f1f5f9;
+  
+  --std-ink-main: #0f172a;
+  --std-ink-muted: #475569;
+  --std-ink-subtle: #94a3b8;
+  
+  --std-accent: #0f766e;
+  --std-accent-bg: #f0fdfa;
+  --std-accent-border: #ccfbf1;
+  --std-accent-ink: #0f766e;
+  
+  --std-success-bg: #ecfdf5;
+  --std-success-border: #a7f3d0;
+  --std-success-ink: #047857;
+  
+  --std-danger-bg: #fef2f2;
+  --std-danger-border: #fecaca;
+  --std-danger-ink: #b91c1c;
+  
+  --std-shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  --std-shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.06), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+  --std-shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.04);
+}
+
+html[data-theme="standard"] body {
+  background-color: var(--std-bg-base);
+  color: var(--std-ink-main);
+}
+
+/* Floating Switcher */
+html[data-theme="standard"] .theme-switcher-bar {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--std-border);
+}
+
+html[data-theme="standard"] .theme-pill-btn {
+  color: var(--std-ink-muted);
+}
+
+html[data-theme="standard"] .theme-pill-btn.active {
+  background: var(--std-ink-main);
+  color: #ffffff;
+}
+
+/* Standard Header */
+.std-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--std-border);
+}
+
+.std-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.std-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--std-accent-bg);
+  border: 1px solid var(--std-accent-border);
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+}
+
+.std-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--std-ink-main);
+}
+
+.std-subtitle {
+  font-size: 13px;
+  color: var(--std-ink-muted);
+}
+
+/* Standard Hero Card */
+.std-hero-card {
+  background: var(--std-bg-surface);
+  border: 1px solid var(--std-border);
+  border-radius: 18px;
+  padding: 32px;
+  box-shadow: var(--std-shadow-sm);
+  margin-bottom: 28px;
+  position: relative;
+  overflow: hidden;
+}
+
+.std-hero-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--std-accent), #38bdf8);
+}
+
+.std-hero-top {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.std-hero-label {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--std-ink-subtle);
+  margin-bottom: 6px;
+}
+
+.std-hero-amount {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 38px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--std-ink-main);
+  line-height: 1.1;
+}
+
+.std-hero-amount.overspent {
+  color: var(--std-danger-ink);
+}
+
+.std-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.std-hero-badge.success {
+  background: var(--std-success-bg);
+  color: var(--std-success-ink);
+  border: 1px solid var(--std-success-border);
+}
+
+.std-hero-badge.danger {
+  background: var(--std-danger-bg);
+  color: var(--std-danger-ink);
+  border: 1px solid var(--std-danger-border);
+}
+
+/* Progress bar in hero */
+.std-progress-track {
+  height: 8px;
+  background: var(--std-bg-subtle);
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.std-progress-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--std-accent);
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.std-progress-fill.danger {
+  background: var(--std-danger-ink);
+}
+
+/* Hero Stats Grid */
+.std-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  border-top: 1px solid var(--std-border-subtle);
+  padding-top: 20px;
+}
+
+.std-stat-label {
+  font-size: 12px;
+  color: var(--std-ink-muted);
+  margin-bottom: 4px;
+}
+
+.std-stat-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--std-ink-main);
+}
+
+/* Standard Section Layout */
+.std-section {
+  margin-bottom: 36px;
+}
+
+.std-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.std-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--std-ink-main);
+}
+
+.std-section-sub {
+  font-size: 12px;
+  color: var(--std-ink-muted);
+}
+
+/* Standard Categories Grid */
+.std-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.std-cat-card {
+  background: var(--std-bg-surface);
+  border: 1px solid var(--std-border);
+  border-radius: 14px;
+  padding: 16px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.std-cat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--std-shadow-md);
+}
+
+.std-cat-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.std-cat-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--std-bg-subtle);
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+}
+
+.std-cat-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--std-ink-main);
+}
+
+.std-cat-spend {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--std-ink-main);
+}
+
+/* Standard Table Card */
+.std-table-card {
+  background: var(--std-bg-surface);
+  border: 1px solid var(--std-border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--std-shadow-sm);
+}
+
+.std-table-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--std-border-subtle);
+  transition: background-color 0.15s ease;
+}
+
+.std-table-row:last-child {
+  border-bottom: none;
+}
+
+.std-table-row:hover {
+  background: var(--std-bg-hover);
+}
+
+/* Empty State Card */
+html[data-theme="standard"] .portal-empty-card {
+  background: var(--std-bg-surface);
+  border: 1px solid var(--std-border);
+  box-shadow: var(--std-shadow-md);
+  color: var(--std-ink-main);
+}
+
+html[data-theme="standard"] .portal-empty-desc {
+  color: var(--std-ink-muted);
+}

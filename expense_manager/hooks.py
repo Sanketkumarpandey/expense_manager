@@ -68,6 +68,8 @@ doctype_js = {"User": "public/js/user.js"}
 # Vue SPA served from frontend/ build output (expense_manager/www/expense_manager.html)
 website_route_rules = [
     {"from_route": "/expense_manager/<path:app_path>", "to_route": "expense_manager"},
+    {"from_route": "/dependent/<token>", "to_route": "dependent_portal"},
+    {"from_route": "/dependent", "to_route": "dependent_portal"},
 ]
 
 # Generators
@@ -133,13 +135,13 @@ after_install = "expense_manager.install.after_install"
 # -----------
 # Permissions evaluated in scripted ways
 
-# permission_query_conditions = {
-# 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
-# }
-#
-# has_permission = {
-# 	"Event": "frappe.desk.doctype.event.event.has_permission",
-# }
+permission_query_conditions = {
+    "Expense": "expense_manager.permissions.expense_permission_query_conditions",
+}
+
+has_permission = {
+    "Expense": "expense_manager.permissions.expense_has_permission",
+}
 
 # Document Events
 # ---------------

@@ -94,6 +94,29 @@ Every method is scoped to `frappe.session.user` via `_current_user()`.
 | `get_link_status()` | GET. Returns `{linked: bool}` for the logged-in user. |
 | `unlink()` | POST. Deactivates the current link. Idempotent. |
 
+## Guardian / User provisioning
+
+| Method | Description |
+|---|---|
+| `register_guardian(email, first_name, last_name=None, send_welcome_email=True)` | POST. Admin-only guardian onboarding: creates (or upgrades) a Frappe User, assigns the `Expense Manager User` role, and seeds the 13 default categories. |
+
+`register_guardian` is **admin-only** — the caller must be `Administrator` or have the
+`System Manager` role. The guard runs first, before any input validation, so Guest
+sessions and any `Expense Manager User` caller are rejected with
+`frappe.PermissionError` (including self-elevation attempts). This is the only
+guardian-provisioning path that auto-grants the role.
+
+- **New user** → creates the `User` with the role pre-assigned and seeds default
+  categories in the same request. Returns `{"success": true, "user": <email>, "created": true}`.
+- **Existing user** → idempotent: ensures the role via `add_roles` when missing
+  and seeds default categories (skipping any that already exist). Returns
+  `{"success": true, "user": <email>, "created": false}`.
+- Email is trimmed and lowercased before validation. `first_name` is required.
+- The response never includes a password or any other `User` field beyond
+  `email`/`name`.
+- **Dependents are out of scope**: dependents never get a Frappe User, so this
+  endpoint provisions guardians only.
+
 ## Conventions
 
 - All whitelisted methods are called via `/api/method/...`; Frappe wraps the

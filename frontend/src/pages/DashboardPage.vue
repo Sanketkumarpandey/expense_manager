@@ -104,11 +104,11 @@
             View all
           </router-link>
         </div>
-        <div v-if="recent.length" class="divide-y divide-outline-gray-1">
+        <div v-if="recent.length" class="max-h-72 overflow-y-auto divide-y divide-outline-gray-1">
           <div
             v-for="expense in recent"
             :key="expense.name"
-            class="flex items-center gap-3 px-5 py-3"
+            class="flex items-center gap-3 px-5 py-3 hover:bg-surface-gray-1/50 transition-colors"
           >
             <span
               class="grid size-8 shrink-0 place-items-center rounded-lg bg-surface-gray-2 text-ink-gray-7"

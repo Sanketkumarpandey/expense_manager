@@ -1,13 +1,17 @@
-# Copyright (c) 2026, Sanket Kumar and contributors
-# For license information, please see license.txt
-
+import secrets
 import frappe
 from frappe import _
 from frappe.model.document import Document
 
 
 class Dependent(Document):
+    def before_insert(self):
+        if not self.access_token:
+            self.access_token = secrets.token_urlsafe(24)
+
     def before_validate(self):
+        if not self.access_token:
+            self.access_token = secrets.token_urlsafe(24)
         self.normalize_fields()
 
     def validate(self):
@@ -44,14 +48,14 @@ class Dependent(Document):
         if not self.dependent_name.strip():
             frappe.throw(_("Dependent Name cannot be empty."))
 
-        existing = frappe.db.exists(
-            "Dependent",
-            {
-                "dependent_name": self.dependent_name,
-                "guardian": self.guardian,
-                "name": ["!=", self.name],
-            },
-        )
+        filters = {
+            "dependent_name": self.dependent_name,
+            "guardian": self.guardian,
+        }
+        if self.name:
+            filters["name"] = ["!=", self.name]
+
+        existing = frappe.db.exists("Dependent", filters)
 
         if existing:
             frappe.throw(_("Dependent Name already exists."))
@@ -79,4 +83,30 @@ class Dependent(Document):
             if not self.telegram_user_id.isdigit():
                 frappe.throw(
                     _("Telegram User ID must contain only digits.")
+                )
+
+            existing_dependent = frappe.db.exists(
+                "Dependent",
+                {
+                    "telegram_user_id": self.telegram_user_id,
+                    "name": ["!=", self.name],
+                },
+            )
+
+            if existing_dependent:
+                frappe.throw(
+                    _("Telegram User ID already assigned to another dependent.")
+                )
+
+            existing_link = frappe.db.exists(
+                "Telegram Link",
+                {
+                    "telegram_user_id": self.telegram_user_id,
+                    "is_active": 1,
+                },
+            )
+
+            if existing_link:
+                frappe.throw(
+                    _("Telegram User ID already linked to a user account.")
                 )

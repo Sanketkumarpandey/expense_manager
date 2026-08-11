@@ -134,7 +134,9 @@ def search_allocations(search_text=None, active_only=1):
 
 
 @frappe.whitelist(methods=["GET"])
-def get_balance(dependent):
+def get_balance(dependent=None):
+    if not dependent:
+        dependent = frappe.form_dict.get("dependent") or (frappe.request and frappe.request.args.get("dependent"))
     guardian = _current_user()
     try:
         balance = PocketMoneyService.get_balance(guardian, dependent)

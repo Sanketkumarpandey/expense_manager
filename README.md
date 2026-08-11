@@ -196,5 +196,6 @@ Expenso includes a helper script to launch a Cloudflare Quick Tunnel and automat
 ## 7. Known Limitations & Deferred Work
 
 - **Dependent Web Portal**: Dependents currently interact exclusively through the Telegram bot interface. A dedicated, restricted dependent web portal view is deferred.
+- **No Self-Service Signup**: There is no public signup flow. Guardian accounts are provisioned by an admin via the whitelisted `register_guardian` endpoint (`expense_manager.api.users.register_guardian`, which grants the `Expense Manager User` role and seeds default categories) or the Desk New User form (**the latter does not auto-grant the role or seed categories**).
 - **Ephemeral Tunnels in Development**: The automated tunnel helper uses Cloudflare Quick Tunnels (`trycloudflare.com`), which assign ephemeral URLs on restart. Production deployment requires a static domain or named tunnel.
 - **Desk Access Model**: Standard Frappe Desk DocType views are restricted to the `System Manager` role; guardian interaction is designed around the custom Vue SPA frontend.

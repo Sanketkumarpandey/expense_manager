@@ -12,6 +12,7 @@
   "column_break_uohi",
   "relationship",
   "default_monthly_allowance",
+  "access_token",
   "section_break_ajtz",
   "telegram_username",
   "allow_carry_forward",
@@ -27,6 +28,13 @@
   "last_allocation_reminder_on"
  ],
  "fields": [
+  {
+   "fieldname": "access_token",
+   "fieldtype": "Data",
+   "label": "Access Token",
+   "read_only": 1,
+   "unique": 1
+  },
   {
    "fieldname": "dependent_name",
    "fieldtype": "Data",
@@ -76,8 +84,7 @@
    "description": "Get the UserID of Dependent on the Telegram's @Getmyid_bot\n",
    "fieldname": "telegram_user_id",
    "fieldtype": "Data",
-   "label": "Telegram User ID",
-   "reqd": 1
+   "label": "Telegram User ID"
   },
   {
    "default": "1",

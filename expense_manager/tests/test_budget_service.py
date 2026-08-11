@@ -8,6 +8,7 @@ from expense_manager.services.budget_service import BudgetService
 from expense_manager.services.exceptions import (
     BudgetAlreadyExistsError,
     BudgetNotFoundError,
+    DependentNotFoundError,
     InvalidBudgetPeriodError,
     InvalidBudgetAmountError,
     InvalidBudgetDateRangeError,
@@ -305,3 +306,64 @@ class TestInlineOverspendSharedCategory(ServiceTestCase):
         self.assertEqual(mock_active.call_count, 2)
         self.assertEqual(mock_active.call_args_list[1].kwargs["dependent"], None)
         mock_cat.assert_called_once_with(SAMPLE_USER, "cat-food-001")
+
+
+class TestBudgetDependentOwnership(ServiceTestCase):
+    """F-3: a dependent-scoped budget may only reference a dependent the
+    guardian owns, on both create and update."""
+
+    @patch.object(BudgetService, "_get_active_budget_for_category", return_value=None)
+    @patch("expense_manager.services.budget_service.CategoryService.get_category")
+    def test_create_with_own_dependent_succeeds(self, _mock_cat, _mock_active):
+        doc = self._make_doc(**SAMPLE_BUDGET_DEP)
+        with patch.object(frappe, "get_doc", return_value=doc), \
+             patch(
+                 "expense_manager.services.budget_service.DependentService.get_dependent",
+                 return_value=SAMPLE_DEPENDENT,
+             ) as mock_dep:
+            result = BudgetService.create_budget(
+                SAMPLE_USER, "cat-food-dep-001", 3000, "Monthly",
+                "2026-07-01", "2026-07-31", dependent="dep-son-001",
+            )
+        self.assertEqual(result.dependent, "dep-son-001")
+        mock_dep.assert_called_once_with(SAMPLE_USER, "dep-son-001")
+
+    @patch.object(BudgetService, "_get_active_budget_for_category", return_value=None)
+    @patch("expense_manager.services.budget_service.CategoryService.get_category")
+    def test_create_rejects_foreign_dependent(self, _mock_cat, _mock_active):
+        doc = self._make_doc(**SAMPLE_BUDGET_DEP)
+        with patch.object(frappe, "get_doc", return_value=doc), \
+             patch(
+                 "expense_manager.services.budget_service.DependentService.get_dependent",
+                 side_effect=DependentNotFoundError,
+             ) as mock_dep:
+            with self.assertRaises(DependentNotFoundError):
+                BudgetService.create_budget(
+                    SAMPLE_USER, "cat-food-dep-001", 3000, "Monthly",
+                    "2026-07-01", "2026-07-31", dependent="dep-son-001",
+                )
+        mock_dep.assert_called_once_with(SAMPLE_USER, "dep-son-001")
+
+    def test_update_rejects_foreign_dependent(self):
+        doc = self._make_doc(**SAMPLE_BUDGET)
+        with patch.object(frappe, "get_doc", return_value=doc), \
+             patch(
+                 "expense_manager.services.budget_service.DependentService.get_dependent",
+                 side_effect=DependentNotFoundError,
+             ) as mock_dep:
+            with self.assertRaises(DependentNotFoundError):
+                BudgetService.update_budget(
+                    SAMPLE_USER, "bud-001", dependent="dep-foreign-001"
+                )
+        mock_dep.assert_called_once_with(SAMPLE_USER, "dep-foreign-001")
+
+    def test_update_clearing_dependent_skips_ownership_validation(self):
+        doc = self._make_doc(**SAMPLE_BUDGET)
+        with patch.object(frappe, "get_doc", return_value=doc), \
+             patch(
+                 "expense_manager.services.budget_service.DependentService.get_dependent",
+                 return_value=SAMPLE_DEPENDENT,
+             ) as mock_dep:
+            BudgetService.update_budget(SAMPLE_USER, "bud-001", dependent=None)
+        self.assertIsNone(doc.dependent)
+        mock_dep.assert_not_called()

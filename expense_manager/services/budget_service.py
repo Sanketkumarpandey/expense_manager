@@ -17,6 +17,7 @@ from expense_manager.services.exceptions import (
     InvalidAlertThresholdError,
 )
 from expense_manager.services.category_service import CategoryService
+from expense_manager.services.dependent_service import DependentService
 from expense_manager.constants.budget import BudgetPeriod
 from expense_manager.utils.logger import logger
 from expense_manager.utils.helpers import escape_like
@@ -40,6 +41,7 @@ class BudgetService:
         dependent: Optional[str] = None,
     ) -> Document:
         BudgetService._validate_category(owner_user, category, dependent=dependent)
+        BudgetService._validate_dependent(owner_user, dependent)
         BudgetService._validate_period(period)
         allocated_amount = BudgetService._validate_amount(allocated_amount)
         BudgetService._validate_dates(start_date, end_date)
@@ -126,6 +128,8 @@ class BudgetService:
             doc.notes = notes
 
         if dependent is not _UNSET:
+            if dependent is not None:
+                BudgetService._validate_dependent(owner_user, dependent)
             doc.dependent = dependent
 
         doc.save(ignore_permissions=True)
@@ -511,6 +515,17 @@ class BudgetService:
         # still scopes a budget to a dependent, but the category itself is
         # always validated against the guardian's pool.
         CategoryService.get_category(owner_user, category)
+
+    @staticmethod
+    def _validate_dependent(
+        owner_user: str,
+        dependent: Optional[str],
+    ) -> None:
+        """A dependent-scoped budget may only reference a dependent the
+        guardian owns. Mirrors ExpenseService._validate_dependent so the
+        desk/REST path cannot attach a budget to someone else's dependent."""
+        if dependent is not None:
+            DependentService.get_dependent(owner_user, dependent)
 
     @staticmethod
     def _validate_period(period: str) -> None:

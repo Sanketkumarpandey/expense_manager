@@ -290,7 +290,7 @@ class ReportService:
     ) -> list[dict]:
         ReportService._validate_date_range(from_date, to_date)
 
-        lookup_user = individual or owner_user
+        lookup_user = ReportService._resolve_report_user(owner_user, individual)
 
         expenses = ExpenseService.list_expenses(
             lookup_user,
@@ -405,6 +405,7 @@ class ReportService:
         owner_user: str,
         month: Optional[int] = None,
         year: Optional[int] = None,
+        requested_user: Optional[str] = None,
     ) -> list[dict]:
         from datetime import date
         today_date = getdate(today())
@@ -414,14 +415,15 @@ class ReportService:
         period_start = getdate(f"{year}-{month:02d}-01")
         period_end = get_last_day(period_start)
 
-        dep_list = DependentService.list_dependents(owner_user, active_only=True)
+        guardian = ReportService._resolve_report_user(owner_user, requested_user)
+        dep_list = DependentService.list_dependents(guardian, active_only=True)
 
         rows = []
         for dep in dep_list:
-            balance = PocketMoneyService.get_balance(owner_user, dep["name"])
+            balance = PocketMoneyService.get_balance(guardian, dep["name"])
 
             period_expenses = ExpenseService.list_expenses(
-                owner_user,
+                guardian,
                 dependent=dep["name"],
                 date_from=period_start,
                 date_to=period_end,
@@ -462,7 +464,7 @@ class ReportService:
         period_start = getdate(f"{year}-{month:02d}-01")
         period_end = get_last_day(period_start)
 
-        target_user = individual or owner_user
+        target_user = ReportService._resolve_report_user(owner_user, individual)
 
         breakdown = ReportService.get_category_breakdown(
             target_user,
@@ -510,7 +512,7 @@ class ReportService:
         individual: Optional[str] = None,
     ) -> dict:
         year = year or getdate(today()).year
-        target_user = individual or owner_user
+        target_user = ReportService._resolve_report_user(owner_user, individual)
 
         monthly_data = ReportService.get_monthly_report(target_user, year=year)
 
@@ -727,3 +729,26 @@ class ReportService:
             raise InvalidReportDateRangeError(
                 _("End date cannot be before start date.")
             )
+
+    @staticmethod
+    def _resolve_report_user(
+        owner_user: str,
+        requested_user: Optional[str] = None,
+    ) -> str:
+        """Resolve the identity a report is scoped to.
+
+        Reports run inside the viewer's session, so the safe default is
+        the session user. A client-supplied ``requested_user``
+        (``individual``/``guardian`` filter) must never change who the
+        report reads for a normal user — it is honored only when the
+        current session belongs to System Manager / Administrator
+        (cross-guardian reporting).
+        """
+        session_user = frappe.session.user
+
+        if requested_user and requested_user != owner_user:
+            roles = frappe.get_roles(session_user)
+            if session_user == "Administrator" or "System Manager" in roles:
+                return requested_user
+
+        return owner_user
