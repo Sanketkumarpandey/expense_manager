@@ -8,11 +8,14 @@ import frappe
 from expense_manager.config.exceptions import ConfigurationError
 from expense_manager.telegram.config import get_telegram_webhook_secret
 
-
 _DEDUPLICATION_TTL_SECONDS = 24 * 60 * 60
 _SECRET_HEADER = "X-Telegram-Bot-Api-Secret-Token"
 
 
+# Guest access is required: Telegram sends webhook POSTs unauthenticated.
+# It is secured by the X-Telegram-Bot-Api-Secret-Token header, validated
+# with hmac.compare_digest against the configured secret in _verify_secret_token().
+# nosemgrep: frappe-semgrep-rules.rules.security.guest-whitelisted-method
 @frappe.whitelist(allow_guest=True, methods=["POST"])
 def handle() -> dict[str, bool]:
 	"""Validate and enqueue one Telegram update; it does not route or process it."""
@@ -48,9 +51,7 @@ def handle() -> dict[str, bool]:
 		)
 	except Exception:
 		_release_update(update_id)
-		frappe.logger("expense_manager").exception(
-			"telegram_webhook_enqueue_failed update_id=%s", update_id
-		)
+		frappe.logger("expense_manager").exception("telegram_webhook_enqueue_failed update_id=%s", update_id)
 		_log_webhook_event(update, "enqueue_failed", started_at)
 		raise frappe.ServiceUnavailableError("Unable to queue the Telegram update.")
 

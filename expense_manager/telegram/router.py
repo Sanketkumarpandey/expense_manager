@@ -4,6 +4,7 @@ from collections.abc import Callable, Mapping
 
 import frappe
 
+from expense_manager.services.exceptions import ExpenseManagerError
 from expense_manager.telegram.handlers.account import handle_profile, handle_settings
 from expense_manager.telegram.handlers.budget import handle_balance, handle_budgets
 from expense_manager.telegram.handlers.dependent import (
@@ -13,9 +14,9 @@ from expense_manager.telegram.handlers.dependent import (
 	handle_savings,
 )
 from expense_manager.telegram.handlers.expense import (
+	handle_addexpense,
 	handle_categories,
 	handle_expenses,
-	handle_addexpense,
 	handle_free_text,
 )
 from expense_manager.telegram.handlers.help import handle_help
@@ -25,8 +26,6 @@ from expense_manager.telegram.handlers.start import handle_start
 from expense_manager.telegram.handlers.unknown import handle_unknown
 from expense_manager.telegram.handlers.unlink import handle_unlink
 from expense_manager.telegram.handlers.voice import handle_voice
-from expense_manager.services.exceptions import ExpenseManagerError
-
 
 Handler = Callable[[dict[str, object]], str]
 
@@ -81,27 +80,19 @@ def route_update(update: dict[str, object]) -> str | None:
 	try:
 		message = _get_message(update)
 		if message is None:
-			frappe.logger("expense_manager").info(
-				"telegram_router status=ignored_unsupported_update"
-			)
+			frappe.logger("expense_manager").info("telegram_router status=ignored_unsupported_update")
 			return None
 
 		# Voice messages are not commands, so dispatch them before text routing.
 		if isinstance(message.get("voice"), dict):
-			frappe.logger("expense_manager").info(
-				"telegram_router status=selected handler=handle_voice"
-			)
+			frappe.logger("expense_manager").info("telegram_router status=selected handler=handle_voice")
 			response = handle_voice(update)
-			frappe.logger("expense_manager").info(
-				"telegram_router status=completed handler=handle_voice"
-			)
+			frappe.logger("expense_manager").info("telegram_router status=completed handler=handle_voice")
 			return response
 
 		text = message.get("text")
 		if not isinstance(text, str) or not text.strip():
-			frappe.logger("expense_manager").info(
-				"telegram_router status=ignored_missing_text"
-			)
+			frappe.logger("expense_manager").info("telegram_router status=ignored_missing_text")
 			return None
 
 		command = _extract_command(text)
@@ -135,9 +126,7 @@ def route_update(update: dict[str, object]) -> str | None:
 		return str(exc)
 
 	except Exception:
-		frappe.logger("expense_manager").exception(
-			"telegram_router status=error"
-		)
+		frappe.logger("expense_manager").exception("telegram_router status=error")
 		return "Sorry, something went wrong. Please try again later."
 
 

@@ -20,6 +20,7 @@ def get_telegram_user_id(update: dict[str, object]) -> str | None:
 		return str(user_id)
 	return None
 
+
 def get_chat_id(update: dict[str, object]) -> str | int | None:
 	message = update.get("message") if isinstance(update, dict) else None
 	chat = message.get("chat") if isinstance(message, dict) else None

@@ -12,15 +12,15 @@ guardian's owner_user regardless of which dependent they're for.
 import io
 
 import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
+matplotlib.use("Agg")
 import frappe
+import matplotlib.pyplot as plt
 from frappe.utils import cint
 
-from expense_manager.services.report_service import ReportService
-from expense_manager.services.exceptions import ExpenseManagerError
 from expense_manager.api.utils import current_user as _current_user
+from expense_manager.services.exceptions import ExpenseManagerError
+from expense_manager.services.report_service import ReportService
 
 
 def generate_chart_png(
@@ -52,7 +52,9 @@ def generate_chart_png(
 
 
 @frappe.whitelist(methods=["GET"])
-def get_expense_summary(dependent=None, date_from=None, date_to=None):
+def get_expense_summary(
+	dependent: str | None = None, date_from: str | None = None, date_to: str | None = None
+):
 	user = _current_user()
 	try:
 		return ReportService.get_expense_summary(
@@ -66,7 +68,7 @@ def get_expense_summary(dependent=None, date_from=None, date_to=None):
 
 
 @frappe.whitelist(methods=["GET"])
-def get_budget_summary(category=None):
+def get_budget_summary(category: str | None = None):
 	user = _current_user()
 	try:
 		return ReportService.get_budget_summary(user, category=category)
@@ -75,7 +77,7 @@ def get_budget_summary(category=None):
 
 
 @frappe.whitelist(methods=["GET"])
-def get_pocket_money_summary(dependent=None):
+def get_pocket_money_summary(dependent: str | None = None):
 	user = _current_user()
 	try:
 		return ReportService.get_pocket_money_summary(user, dependent=dependent)
@@ -84,7 +86,12 @@ def get_pocket_money_summary(dependent=None):
 
 
 @frappe.whitelist(methods=["GET"])
-def get_category_breakdown(dependent=None, date_from=None, date_to=None, category=None):
+def get_category_breakdown(
+	dependent: str | None = None,
+	date_from: str | None = None,
+	date_to: str | None = None,
+	category: str | None = None,
+):
 	user = _current_user()
 	try:
 		return ReportService.get_category_breakdown(
@@ -99,7 +106,7 @@ def get_category_breakdown(dependent=None, date_from=None, date_to=None, categor
 
 
 @frappe.whitelist(methods=["GET"])
-def get_monthly_report(dependent=None, year=None):
+def get_monthly_report(dependent: str | None = None, year: int | None = None):
 	user = _current_user()
 	try:
 		return ReportService.get_monthly_report(
@@ -112,7 +119,7 @@ def get_monthly_report(dependent=None, year=None):
 
 
 @frappe.whitelist(methods=["GET"])
-def get_dependent_report(dependent):
+def get_dependent_report(dependent: str):
 	user = _current_user()
 	try:
 		return ReportService.get_dependent_report(user, dependent)
@@ -121,7 +128,7 @@ def get_dependent_report(dependent):
 
 
 @frappe.whitelist(methods=["GET"])
-def get_spending_trend(dependent=None, months=6, category=None):
+def get_spending_trend(dependent: str | None = None, months: int = 6, category: str | None = None):
 	user = _current_user()
 	try:
 		return ReportService.get_spending_trend(
@@ -135,7 +142,12 @@ def get_spending_trend(dependent=None, months=6, category=None):
 
 
 @frappe.whitelist(methods=["GET"])
-def get_dashboard_summary(dependent=None, category=None, date_from=None, date_to=None):
+def get_dashboard_summary(
+	dependent: str | None = None,
+	category: str | None = None,
+	date_from: str | None = None,
+	date_to: str | None = None,
+):
 	user = _current_user()
 	try:
 		return ReportService.get_dashboard_summary(

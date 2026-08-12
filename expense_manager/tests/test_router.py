@@ -72,9 +72,7 @@ class TestTelegramRouter(TestCase):
 		from expense_manager.services.exceptions import TelegramAlreadyLinkedError
 
 		def _boom(_update):
-			raise TelegramAlreadyLinkedError(
-				"This user already has a linked Telegram account."
-			)
+			raise TelegramAlreadyLinkedError("This user already has a linked Telegram account.")
 
 		with patch.dict(router.COMMAND_HANDLERS, {"boom": _boom}):
 			response = router.route_update({"message": {"text": "/boom"}})
@@ -86,6 +84,7 @@ class TestTelegramRouter(TestCase):
 
 	def test_unexpected_error_returns_generic_message(self) -> None:
 		"""Non-domain exceptions keep the generic fallback message."""
+
 		def _boom(_update):
 			raise ValueError("internal failure")
 

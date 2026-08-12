@@ -15,7 +15,9 @@ class TestWebhookManagement(TestCase):
 		self.response.json.return_value = {"ok": True, "result": True}
 		self.patches = (
 			patch("expense_manager.telegram.webhook_management.requests.post", return_value=self.response),
-			patch("expense_manager.telegram.webhook_management.get_telegram_bot_token", return_value="bot-token"),
+			patch(
+				"expense_manager.telegram.webhook_management.get_telegram_bot_token", return_value="bot-token"
+			),
 			patch(
 				"expense_manager.telegram.webhook_management.get_telegram_webhook_secret",
 				return_value="webhook-secret",

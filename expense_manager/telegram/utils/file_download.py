@@ -10,8 +10,8 @@ from expense_manager.telegram.config import get_telegram_bot_token
 from expense_manager.telegram.utils.constants import (
 	_TELEGRAM_API_BASE_URL,
 	_TELEGRAM_FILE_BASE_URL,
-	GET_FILE_TIMEOUT,
 	DOWNLOAD_FILE_TIMEOUT,
+	GET_FILE_TIMEOUT,
 )
 
 
@@ -27,9 +27,7 @@ def download_voice_file(file_id: str) -> str:
 
 	body = get_file_response.json()
 	if not isinstance(body, dict) or not body.get("ok"):
-		raise TelegramError(
-			f"Telegram getFile returned an error: {body.get('description', body)}"
-		)
+		raise TelegramError(f"Telegram getFile returned an error: {body.get('description', body)}")
 
 	result = body.get("result")
 	if not isinstance(result, dict):
@@ -48,4 +46,5 @@ def download_voice_file(file_id: str) -> str:
 	suffix = os.path.splitext(remote_path)[1] or ".ogg"
 	with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
 		tmp.write(download_response.content)
+		tmp.flush()
 		return tmp.name

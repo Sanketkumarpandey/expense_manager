@@ -2,13 +2,29 @@
 Telegram use-case orchestrator that translates Telegram requests into domain
 service calls."""
 
-from typing import cast, Optional
+from typing import Optional, cast
 
 import frappe
 import requests
 from frappe import _
 from frappe.utils import flt
 
+from expense_manager.ai.exceptions import AIError
+from expense_manager.config.exceptions import ConfigurationError
+from expense_manager.constants.expense import ExpenseSource
+from expense_manager.services.ai_service import AIService
+from expense_manager.services.budget_service import BudgetService
+from expense_manager.services.category_service import CategoryService
+from expense_manager.services.dependent_service import DependentService
+from expense_manager.services.exceptions import (
+	ExpenseManagerError,
+	TelegramNotLinkedError,
+	UnauthorizedTelegramActionError,
+)
+from expense_manager.services.expense_service import ExpenseService
+from expense_manager.services.pocket_money_service import PocketMoneyService
+from expense_manager.services.report_service import ReportService
+from expense_manager.services.telegram_link_service import TelegramLinkService
 from expense_manager.telegram.config import get_telegram_bot_token
 from expense_manager.telegram.utils.constants import (
 	_TELEGRAM_API_BASE_URL,
@@ -17,23 +33,6 @@ from expense_manager.telegram.utils.constants import (
 	TELEGRAM_MAX_RETRIES,
 	TELEGRAM_RETRY_BACKOFF_BASE,
 )
-from expense_manager.services.exceptions import (
-	ExpenseManagerError,
-	TelegramNotLinkedError,
-	UnauthorizedTelegramActionError,
-)
-from expense_manager.services.expense_service import ExpenseService
-from expense_manager.services.category_service import CategoryService
-from expense_manager.services.dependent_service import DependentService
-from expense_manager.services.budget_service import BudgetService
-from expense_manager.services.pocket_money_service import PocketMoneyService
-from expense_manager.services.telegram_link_service import TelegramLinkService
-from expense_manager.services.report_service import ReportService
-from expense_manager.constants.expense import ExpenseSource
-
-from expense_manager.services.ai_service import AIService
-from expense_manager.ai.exceptions import AIError
-from expense_manager.config.exceptions import ConfigurationError
 
 
 def send_message(chat_id: str | int, text: str, parse_mode: str | None = None) -> dict[str, object]:
@@ -53,7 +52,7 @@ def send_message(chat_id: str | int, text: str, parse_mode: str | None = None) -
 				timeout=SEND_MESSAGE_TIMEOUT,
 			)
 			if 500 <= response.status_code < 600 and attempt < TELEGRAM_MAX_RETRIES:
-				time.sleep(TELEGRAM_RETRY_BACKOFF_BASE * (2 ** attempt))
+				time.sleep(TELEGRAM_RETRY_BACKOFF_BASE * (2**attempt))
 				continue
 			response.raise_for_status()
 			response_payload = response.json()
@@ -64,7 +63,7 @@ def send_message(chat_id: str | int, text: str, parse_mode: str | None = None) -
 		except requests.exceptions.RequestException as exc:
 			last_exc = exc
 			if attempt < TELEGRAM_MAX_RETRIES:
-				time.sleep(TELEGRAM_RETRY_BACKOFF_BASE * (2 ** attempt))
+				time.sleep(TELEGRAM_RETRY_BACKOFF_BASE * (2**attempt))
 				continue
 			raise
 
@@ -90,7 +89,7 @@ def send_photo(chat_id: str | int, photo_bytes: bytes, caption: str | None = Non
 				timeout=SEND_PHOTO_TIMEOUT,
 			)
 			if 500 <= response.status_code < 600 and attempt < TELEGRAM_MAX_RETRIES:
-				time.sleep(TELEGRAM_RETRY_BACKOFF_BASE * (2 ** attempt))
+				time.sleep(TELEGRAM_RETRY_BACKOFF_BASE * (2**attempt))
 				continue
 			response.raise_for_status()
 			response_payload = response.json()
@@ -101,18 +100,18 @@ def send_photo(chat_id: str | int, photo_bytes: bytes, caption: str | None = Non
 		except requests.exceptions.RequestException as exc:
 			last_exc = exc
 			if attempt < TELEGRAM_MAX_RETRIES:
-				time.sleep(TELEGRAM_RETRY_BACKOFF_BASE * (2 ** attempt))
+				time.sleep(TELEGRAM_RETRY_BACKOFF_BASE * (2**attempt))
 				continue
 			raise
 
 	raise last_exc  # type: ignore[misc]
+
 
 _UNLINKED_MSG = "Your Telegram account is not linked. Use /link first."
 _GUARDIAN_MSG = "This action is only available to the account guardian."
 
 
 class TelegramService:
-
 	# ------------------------------------------------------------------
 	# Expense Operations
 	# ------------------------------------------------------------------
@@ -166,7 +165,9 @@ class TelegramService:
 				voice_transcript=expense_data.get("voice_transcript"),
 			)
 
-			warning = TelegramService._get_overspend_warning(identity["owner_user"], expense.category, dependent=dependent)
+			warning = TelegramService._get_overspend_warning(
+				identity["owner_user"], expense.category, dependent=dependent
+			)
 
 			return {
 				"success": True,
@@ -194,7 +195,9 @@ class TelegramService:
 				**updates,
 			)
 
-			warning = TelegramService._get_overspend_warning(identity["owner_user"], expense.category, dependent=expense.dependent)
+			warning = TelegramService._get_overspend_warning(
+				identity["owner_user"], expense.category, dependent=expense.dependent
+			)
 
 			return {
 				"success": True,
@@ -287,10 +290,7 @@ class TelegramService:
 			return TelegramService._format_flat_expenses(expenses)
 
 		deps = DependentService.list_dependents(owner_user, active_only=True)
-		all_cats = {
-			row["name"]: row
-			for row in CategoryService.list_categories(owner_user, active_only=True)
-		}
+		all_cats = {row["name"]: row for row in CategoryService.list_categories(owner_user, active_only=True)}
 
 		groups: list[tuple[str, list[dict]]] = []
 
@@ -366,7 +366,7 @@ class TelegramService:
 	def create_expense_from_voice(
 		telegram_user_id: str,
 		file_path: str,
-		language_hint: Optional[str] = None,
+		language_hint: str | None = None,
 	) -> dict:
 		identity, error = TelegramService._resolve_identity_or_error(telegram_user_id)
 		if error:
@@ -382,19 +382,20 @@ class TelegramService:
 
 			exp_dependent = getattr(expense, "dependent", None)
 
-			category_doc = CategoryService.get_category(
-				identity["owner_user"], expense.category
-			)
+			category_doc = CategoryService.get_category(identity["owner_user"], expense.category)
 			category_name = category_doc.category_name
 			category_icon = (category_doc.icon or "").strip()
 
-			warning = TelegramService._get_overspend_warning(identity["owner_user"], expense.category, dependent=exp_dependent)
+			warning = TelegramService._get_overspend_warning(
+				identity["owner_user"], expense.category, dependent=exp_dependent
+			)
 
 			icon_prefix = f"{category_icon} " if category_icon else ""
 
 			return {
 				"success": True,
-				"message": _("Logged ₹{0} under {1}{2}.").format(expense.amount, icon_prefix, category_name) + warning,
+				"message": _("Logged ₹{0} under {1}{2}.").format(expense.amount, icon_prefix, category_name)
+				+ warning,
 				"expense": expense.name,
 			}
 
@@ -402,7 +403,10 @@ class TelegramService:
 			return {"success": False, "message": str(exc)}
 		except ConfigurationError:
 			frappe.logger("expense_manager").exception("telegram_service status=config_error")
-			return {"success": False, "message": _("AI expense parsing isn't set up yet. Please contact your administrator.")}
+			return {
+				"success": False,
+				"message": _("AI expense parsing isn't set up yet. Please contact your administrator."),
+			}
 
 	@staticmethod
 	def create_expense_from_text(
@@ -422,19 +426,20 @@ class TelegramService:
 
 			exp_dependent = getattr(expense, "dependent", None)
 
-			category_doc = CategoryService.get_category(
-				identity["owner_user"], expense.category
-			)
+			category_doc = CategoryService.get_category(identity["owner_user"], expense.category)
 			category_name = category_doc.category_name
 			category_icon = (category_doc.icon or "").strip()
 
-			warning = TelegramService._get_overspend_warning(identity["owner_user"], expense.category, dependent=exp_dependent)
+			warning = TelegramService._get_overspend_warning(
+				identity["owner_user"], expense.category, dependent=exp_dependent
+			)
 
 			icon_prefix = f"{category_icon} " if category_icon else ""
 
 			return {
 				"success": True,
-				"message": _("Logged ₹{0} under {1}{2}.").format(expense.amount, icon_prefix, category_name) + warning,
+				"message": _("Logged ₹{0} under {1}{2}.").format(expense.amount, icon_prefix, category_name)
+				+ warning,
 				"expense": expense.name,
 			}
 
@@ -442,8 +447,10 @@ class TelegramService:
 			return {"success": False, "message": str(exc)}
 		except ConfigurationError:
 			frappe.logger("expense_manager").exception("telegram_service status=config_error")
-			return {"success": False, "message": _("AI expense parsing isn't set up yet. Please contact your administrator.")}
-
+			return {
+				"success": False,
+				"message": _("AI expense parsing isn't set up yet. Please contact your administrator."),
+			}
 
 	# ------------------------------------------------------------------
 	# Reports
@@ -478,7 +485,7 @@ class TelegramService:
 	@staticmethod
 	def get_monthly_report(
 		telegram_user_id: str,
-		year: Optional[int] = None,
+		year: int | None = None,
 	) -> dict:
 		identity, error = TelegramService._resolve_guardian_or_error(telegram_user_id)
 		if error:
@@ -507,7 +514,7 @@ class TelegramService:
 	@staticmethod
 	def get_dependent_report(
 		telegram_user_id: str,
-		dependent: Optional[str] = None,
+		dependent: str | None = None,
 	) -> dict:
 		identity, error = TelegramService._resolve_identity_or_error(telegram_user_id)
 		if error:
@@ -550,14 +557,10 @@ class TelegramService:
 
 		try:
 			if identity["is_dependent"]:
-				balance = PocketMoneyService.get_balance(
-					identity["owner_user"], identity["dependent"]
-				)
+				balance = PocketMoneyService.get_balance(identity["owner_user"], identity["dependent"])
 				data = [balance] if balance else []
 			else:
-				data = PocketMoneyService.list_allocations(
-					identity["owner_user"], active_only=True
-				)
+				data = PocketMoneyService.list_allocations(identity["owner_user"], active_only=True)
 
 			return {"success": True, "data": data}
 
@@ -636,9 +639,7 @@ class TelegramService:
 		commands = [cmd for section in COMMAND_DESCRIPTIONS.values() for cmd, _ in section]
 		return {
 			"success": True,
-			"data": {
-				"commands": commands
-			},
+			"data": {"commands": commands},
 		}
 
 	# ------------------------------------------------------------------
@@ -646,7 +647,7 @@ class TelegramService:
 	# ------------------------------------------------------------------
 
 	@staticmethod
-	def _resolve_identity_or_error(telegram_user_id: str) -> tuple[Optional[dict], Optional[dict]]:
+	def _resolve_identity_or_error(telegram_user_id: str) -> tuple[dict | None, dict | None]:
 		"""Return *(identity, None)* on success, or *(None, error_dict)* if unlinked."""
 		try:
 			return TelegramService._resolve_identity(telegram_user_id), None
@@ -654,7 +655,7 @@ class TelegramService:
 			return None, {"success": False, "message": _UNLINKED_MSG}
 
 	@staticmethod
-	def _resolve_guardian_or_error(telegram_user_id: str) -> tuple[Optional[dict], Optional[dict]]:
+	def _resolve_guardian_or_error(telegram_user_id: str) -> tuple[dict | None, dict | None]:
 		"""Return *(identity, None)* for a linked guardian, or *(None, error_dict)*."""
 		identity, error = TelegramService._resolve_identity_or_error(telegram_user_id)
 		if error:
@@ -670,7 +671,7 @@ class TelegramService:
 	# ------------------------------------------------------------------
 
 	@staticmethod
-	def _try_resolve_identity(telegram_user_id: str) -> Optional[dict]:
+	def _try_resolve_identity(telegram_user_id: str) -> dict | None:
 		owner_user = None
 
 		try:
@@ -701,23 +702,18 @@ class TelegramService:
 		identity = TelegramService._try_resolve_identity(telegram_user_id)
 
 		if identity is None:
-			raise TelegramNotLinkedError(
-				_("This Telegram account is not linked.")
-			)
+			raise TelegramNotLinkedError(_("This Telegram account is not linked."))
 
 		return identity
 
 	@staticmethod
 	def _require_guardian(identity: dict) -> None:
 		if identity["is_dependent"]:
-			raise UnauthorizedTelegramActionError(
-				_("This action is only available to the account guardian.")
-			)
+			raise UnauthorizedTelegramActionError(_("This action is only available to the account guardian."))
 
 	@staticmethod
-	def _get_overspend_warning(owner_user: str, category: str, dependent: Optional[str] = None) -> str:
+	def _get_overspend_warning(owner_user: str, category: str, dependent: str | None = None) -> str:
 		return BudgetService.build_inline_overspend_warning(owner_user, category, dependent=dependent)
-
 
 	@staticmethod
 	def rollover_pocket_money(telegram_user_id: str) -> dict:
@@ -744,15 +740,14 @@ class TelegramService:
 		except ExpenseManagerError as exc:
 			return {"success": False, "message": str(exc)}
 
-
 	@staticmethod
 	def complete_link(
 		telegram_user_id: str,
 		token: str,
-		telegram_username: Optional[str] = None,
-		first_name: Optional[str] = None,
-		last_name: Optional[str] = None,
-		language_code: Optional[str] = None,
+		telegram_username: str | None = None,
+		first_name: str | None = None,
+		last_name: str | None = None,
+		language_code: str | None = None,
 	) -> dict:
 		try:
 			TelegramLinkService.verify_and_link(

@@ -8,8 +8,8 @@ service tests (test_ai_service, test_expense_service).
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
-from expense_manager.api import expenses as api_expenses
 from expense_manager.ai.exceptions import IncomeDetectedError
+from expense_manager.api import expenses as api_expenses
 from expense_manager.config.exceptions import ConfigurationError
 from expense_manager.constants.expense import ExpenseSource
 
@@ -48,12 +48,18 @@ class TestApiCreateExpenseFromText(TestCase):
 
 	def test_success_passes_web_source_and_enriches_response(self):
 		doc = self._expense_doc()
-		with patch.object(api_expenses, "AIService") as mock_ai, \
-		     patch.object(api_expenses, "_category_lookup", return_value={
-			     "cat-food-001": {"category_name": "Food", "icon": "🍽️"},
-		     }), \
-		     patch.object(api_expenses, "BudgetService") as mock_budget, \
-		     patch.object(api_expenses, "_current_user", return_value="guardian@example.com"):
+		with (
+			patch.object(api_expenses, "AIService") as mock_ai,
+			patch.object(
+				api_expenses,
+				"_category_lookup",
+				return_value={
+					"cat-food-001": {"category_name": "Food", "icon": "🍽️"},
+				},
+			),
+			patch.object(api_expenses, "BudgetService") as mock_budget,
+			patch.object(api_expenses, "_current_user", return_value="guardian@example.com"),
+		):
 			mock_ai.create_expense_from_text.return_value = doc
 			mock_budget.build_inline_overspend_warning.return_value = ""
 
@@ -75,10 +81,12 @@ class TestApiCreateExpenseFromText(TestCase):
 
 	def test_dependent_is_forwarded(self):
 		doc = self._expense_doc(dependent="dep-son-001")
-		with patch.object(api_expenses, "AIService") as mock_ai, \
-		     patch.object(api_expenses, "_category_lookup", return_value={}), \
-		     patch.object(api_expenses, "BudgetService", build_inline_overspend_warning=lambda *a, **k: ""), \
-		     patch.object(api_expenses, "_current_user", return_value="guardian@example.com"):
+		with (
+			patch.object(api_expenses, "AIService") as mock_ai,
+			patch.object(api_expenses, "_category_lookup", return_value={}),
+			patch.object(api_expenses, "BudgetService", build_inline_overspend_warning=lambda *a, **k: ""),
+			patch.object(api_expenses, "_current_user", return_value="guardian@example.com"),
+		):
 			mock_ai.create_expense_from_text.return_value = doc
 
 			result = api_expenses.create_expense_from_text("lunch 250", dependent="dep-son-001")
@@ -93,10 +101,12 @@ class TestApiCreateExpenseFromText(TestCase):
 
 	def test_overspend_warning_is_appended(self):
 		doc = self._expense_doc()
-		with patch.object(api_expenses, "AIService") as mock_ai, \
-		     patch.object(api_expenses, "_category_lookup", return_value={}), \
-		     patch.object(api_expenses, "BudgetService") as mock_budget, \
-		     patch.object(api_expenses, "_current_user", return_value="guardian@example.com"):
+		with (
+			patch.object(api_expenses, "AIService") as mock_ai,
+			patch.object(api_expenses, "_category_lookup", return_value={}),
+			patch.object(api_expenses, "BudgetService") as mock_budget,
+			patch.object(api_expenses, "_current_user", return_value="guardian@example.com"),
+		):
 			mock_ai.create_expense_from_text.return_value = doc
 			mock_budget.build_inline_overspend_warning.return_value = "⚠️ Budget exceeded!"
 
@@ -106,11 +116,13 @@ class TestApiCreateExpenseFromText(TestCase):
 
 	def test_overspend_payload_is_appended(self):
 		doc = self._expense_doc()
-		with patch.object(api_expenses, "AIService") as mock_ai, \
-		     patch.object(api_expenses, "_category_lookup", return_value={}), \
-		     patch.object(api_expenses, "BudgetService") as mock_budget, \
-		     patch.object(api_expenses, "CategoryService") as mock_cat, \
-		     patch.object(api_expenses, "_current_user", return_value="guardian@example.com"):
+		with (
+			patch.object(api_expenses, "AIService") as mock_ai,
+			patch.object(api_expenses, "_category_lookup", return_value={}),
+			patch.object(api_expenses, "BudgetService") as mock_budget,
+			patch.object(api_expenses, "CategoryService") as mock_cat,
+			patch.object(api_expenses, "_current_user", return_value="guardian@example.com"),
+		):
 			mock_ai.create_expense_from_text.return_value = doc
 			mock_budget.build_inline_overspend_warning.return_value = ""
 			mock_budget.get_budget_usage.return_value = {
@@ -135,11 +147,13 @@ class TestApiCreateExpenseFromText(TestCase):
 
 	def test_no_overspend_payload_when_budget_ok(self):
 		doc = self._expense_doc()
-		with patch.object(api_expenses, "AIService") as mock_ai, \
-		     patch.object(api_expenses, "_category_lookup", return_value={}), \
-		     patch.object(api_expenses, "BudgetService") as mock_budget, \
-		     patch.object(api_expenses, "CategoryService") as mock_cat, \
-		     patch.object(api_expenses, "_current_user", return_value="guardian@example.com"):
+		with (
+			patch.object(api_expenses, "AIService") as mock_ai,
+			patch.object(api_expenses, "_category_lookup", return_value={}),
+			patch.object(api_expenses, "BudgetService") as mock_budget,
+			patch.object(api_expenses, "CategoryService") as mock_cat,
+			patch.object(api_expenses, "_current_user", return_value="guardian@example.com"),
+		):
 			mock_ai.create_expense_from_text.return_value = doc
 			mock_budget.build_inline_overspend_warning.return_value = ""
 			mock_budget.get_budget_usage.return_value = {
@@ -157,8 +171,10 @@ class TestApiCreateExpenseFromText(TestCase):
 			mock_cat.get_category.assert_not_called()
 
 	def test_config_error_returns_friendly_message(self):
-		with patch.object(api_expenses, "AIService") as mock_ai, \
-		     patch.object(api_expenses, "_current_user", return_value="guardian@example.com"):
+		with (
+			patch.object(api_expenses, "AIService") as mock_ai,
+			patch.object(api_expenses, "_current_user", return_value="guardian@example.com"),
+		):
 			mock_ai.create_expense_from_text.side_effect = ConfigurationError("missing groq key")
 
 			result = api_expenses.create_expense_from_text("lunch 250")
@@ -167,9 +183,13 @@ class TestApiCreateExpenseFromText(TestCase):
 			self.assertIn("isn't set up yet", result["message"])
 
 	def test_ai_error_message_is_surfaced(self):
-		with patch.object(api_expenses, "AIService") as mock_ai, \
-		     patch.object(api_expenses, "_current_user", return_value="guardian@example.com"):
-			mock_ai.create_expense_from_text.side_effect = IncomeDetectedError("Looks like income, not an expense.")
+		with (
+			patch.object(api_expenses, "AIService") as mock_ai,
+			patch.object(api_expenses, "_current_user", return_value="guardian@example.com"),
+		):
+			mock_ai.create_expense_from_text.side_effect = IncomeDetectedError(
+				"Looks like income, not an expense."
+			)
 
 			result = api_expenses.create_expense_from_text("salary credited")
 

@@ -13,4 +13,3 @@ def handle_help(update: dict[str, object]) -> str:
 			prefix = f"/{cmd} " if desc.startswith("<") else f"/{cmd} — "
 			lines.append(f"{prefix}{desc}")
 	return "\n".join(lines)
-

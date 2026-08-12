@@ -6,16 +6,16 @@ not through this file — this is the desk/REST path only."""
 import frappe
 from frappe.utils import cint, flt
 
-from expense_manager.services.expense_service import ExpenseService
+from expense_manager.ai.exceptions import AIError
+from expense_manager.api.utils import current_user as _current_user
+from expense_manager.api.utils import resolve_category_id
+from expense_manager.config.exceptions import ConfigurationError
+from expense_manager.constants.expense import ExpenseSource
+from expense_manager.services.ai_service import AIService
 from expense_manager.services.budget_service import BudgetService
 from expense_manager.services.category_service import CategoryService
 from expense_manager.services.exceptions import ExpenseManagerError
-from expense_manager.services.ai_service import AIService
-from expense_manager.ai.exceptions import AIError
-from expense_manager.config.exceptions import ConfigurationError
-from expense_manager.constants.expense import ExpenseSource
-from expense_manager.api.utils import current_user as _current_user
-from expense_manager.api.utils import resolve_category_id
+from expense_manager.services.expense_service import ExpenseService
 
 # Same rationale as api/budgets.py and api/dependents.py:
 # ExpenseService.update_expense distinguishes "not supplied" from
@@ -26,143 +26,143 @@ _API_UNSET = "__unset__"
 
 @frappe.whitelist(methods=["POST"])
 def create_expense(
-    category,
-    amount,
-    expense_date,
-    dependent=None,
-    description=None,
-    source=None,
-    payment_method=None,
-    voice_transcript=None,
+	category: str,
+	amount: float,
+	expense_date: str,
+	dependent: str | None = None,
+	description: str | None = None,
+	source: str | None = None,
+	payment_method: str | None = None,
+	voice_transcript: str | None = None,
 ):
-    user = _current_user()
+	user = _current_user()
 
-    kwargs = {}
-    if source is not None:
-        kwargs["source"] = source
+	kwargs = {}
+	if source is not None:
+		kwargs["source"] = source
 
-    try:
-        resolved_category = resolve_category_id(user, category)
-        doc = ExpenseService.create_expense(
-            user,
-            resolved_category,
-            flt(amount),
-            expense_date,
-            dependent=dependent,
-            description=description,
-            payment_method=payment_method,
-            voice_transcript=voice_transcript,
-            **kwargs,
-        ).as_dict()
-        lookup = _category_lookup(user)
-        response = _enrich_expense(doc, lookup)
-        warning = BudgetService.build_inline_overspend_warning(
-            user, doc.get("category"), dependent=doc.get("dependent")
-        )
-        if warning:
-            response["warning"] = warning
-        overspend = _overspend_info(user, doc.get("category"), dependent=doc.get("dependent"))
-        if overspend:
-            response["overspend"] = overspend
-        return response
-    except ExpenseManagerError as exc:
-        return {"success": False, "message": str(exc)}
+	try:
+		resolved_category = resolve_category_id(user, category)
+		doc = ExpenseService.create_expense(
+			user,
+			resolved_category,
+			flt(amount),
+			expense_date,
+			dependent=dependent,
+			description=description,
+			payment_method=payment_method,
+			voice_transcript=voice_transcript,
+			**kwargs,
+		).as_dict()
+		lookup = _category_lookup(user)
+		response = _enrich_expense(doc, lookup)
+		warning = BudgetService.build_inline_overspend_warning(
+			user, doc.get("category"), dependent=doc.get("dependent")
+		)
+		if warning:
+			response["warning"] = warning
+		overspend = _overspend_info(user, doc.get("category"), dependent=doc.get("dependent"))
+		if overspend:
+			response["overspend"] = overspend
+		return response
+	except ExpenseManagerError as exc:
+		return {"success": False, "message": str(exc)}
 
 
 @frappe.whitelist(methods=["GET"])
-def get_expense(expense):
-    user = _current_user()
-    try:
-        doc = ExpenseService.get_expense(user, expense).as_dict()
-        lookup = _category_lookup(user)
-        return _enrich_expense(doc, lookup)
-    except ExpenseManagerError as exc:
-        return {"success": False, "message": str(exc)}
+def get_expense(expense: str):
+	user = _current_user()
+	try:
+		doc = ExpenseService.get_expense(user, expense).as_dict()
+		lookup = _category_lookup(user)
+		return _enrich_expense(doc, lookup)
+	except ExpenseManagerError as exc:
+		return {"success": False, "message": str(exc)}
 
 
 @frappe.whitelist(methods=["POST"])
 def update_expense(
-    expense,
-    category=None,
-    amount=None,
-    expense_date=None,
-    dependent=_API_UNSET,
-    description=_API_UNSET,
-    payment_method=_API_UNSET,
+	expense: str,
+	category: str | None = None,
+	amount: float | None = None,
+	expense_date: str | None = None,
+	dependent: str | None = _API_UNSET,
+	description: str | None = _API_UNSET,
+	payment_method: str | None = _API_UNSET,
 ):
-    user = _current_user()
+	user = _current_user()
 
-    kwargs = {}
-    if category is not None:
-        kwargs["category"] = category
-    if amount is not None:
-        kwargs["amount"] = flt(amount)
-    if expense_date is not None:
-        kwargs["expense_date"] = expense_date
-    if dependent is not _API_UNSET:
-        kwargs["dependent"] = dependent or None
-    if description is not _API_UNSET:
-        kwargs["description"] = description or None
-    if payment_method is not _API_UNSET:
-        kwargs["payment_method"] = payment_method or None
+	kwargs = {}
+	if category is not None:
+		kwargs["category"] = category
+	if amount is not None:
+		kwargs["amount"] = flt(amount)
+	if expense_date is not None:
+		kwargs["expense_date"] = expense_date
+	if dependent is not _API_UNSET:
+		kwargs["dependent"] = dependent or None
+	if description is not _API_UNSET:
+		kwargs["description"] = description or None
+	if payment_method is not _API_UNSET:
+		kwargs["payment_method"] = payment_method or None
 
-    try:
-        doc = ExpenseService.update_expense(user, expense, **kwargs).as_dict()
-        lookup = _category_lookup(user)
-        response = _enrich_expense(doc, lookup)
-        overspend = _overspend_info(user, doc.get("category"), dependent=doc.get("dependent"))
-        if overspend:
-            response["overspend"] = overspend
-        return response
-    except ExpenseManagerError as exc:
-        return {"success": False, "message": str(exc)}
-
-
-@frappe.whitelist(methods=["POST"])
-def create_expense_from_text(text, dependent=None):
-    """AI-assisted quick add. Thin wrapper around AIService so the desk
-    quick-add box and the Telegram text pipeline share the same parsing
-    logic. Mirrors TelegramService.create_expense_from_text error handling:
-    unconfigured AI keys surface a friendly config message instead of an
-    internal traceback."""
-    user = _current_user()
-    try:
-        expense = AIService.create_expense_from_text(
-            owner_user=user,
-            text=text,
-            dependent=dependent,
-            source=ExpenseSource.WEB,
-        )
-        doc = expense.as_dict()
-        lookup = _category_lookup(user)
-        response = _enrich_expense(doc, lookup)
-        warning = BudgetService.build_inline_overspend_warning(
-            user, doc.get("category"), dependent=doc.get("dependent")
-        )
-        if warning:
-            response["warning"] = warning
-        overspend = _overspend_info(user, doc.get("category"), dependent=doc.get("dependent"))
-        if overspend:
-            response["overspend"] = overspend
-        return response
-    except (ExpenseManagerError, AIError) as exc:
-        return {"success": False, "message": str(exc)}
-    except ConfigurationError:
-        frappe.logger("expense_manager").exception("api status=config_error create_expense_from_text")
-        return {
-            "success": False,
-            "message": frappe._("AI expense parsing isn't set up yet. Please contact your administrator."),
-        }
+	try:
+		doc = ExpenseService.update_expense(user, expense, **kwargs).as_dict()
+		lookup = _category_lookup(user)
+		response = _enrich_expense(doc, lookup)
+		overspend = _overspend_info(user, doc.get("category"), dependent=doc.get("dependent"))
+		if overspend:
+			response["overspend"] = overspend
+		return response
+	except ExpenseManagerError as exc:
+		return {"success": False, "message": str(exc)}
 
 
 @frappe.whitelist(methods=["POST"])
-def delete_expense(expense):
-    user = _current_user()
-    try:
-        ExpenseService.delete_expense(user, expense)
-        return {"success": True}
-    except ExpenseManagerError as exc:
-        return {"success": False, "message": str(exc)}
+def create_expense_from_text(text: str, dependent: str | None = None):
+	"""AI-assisted quick add. Thin wrapper around AIService so the desk
+	quick-add box and the Telegram text pipeline share the same parsing
+	logic. Mirrors TelegramService.create_expense_from_text error handling:
+	unconfigured AI keys surface a friendly config message instead of an
+	internal traceback."""
+	user = _current_user()
+	try:
+		expense = AIService.create_expense_from_text(
+			owner_user=user,
+			text=text,
+			dependent=dependent,
+			source=ExpenseSource.WEB,
+		)
+		doc = expense.as_dict()
+		lookup = _category_lookup(user)
+		response = _enrich_expense(doc, lookup)
+		warning = BudgetService.build_inline_overspend_warning(
+			user, doc.get("category"), dependent=doc.get("dependent")
+		)
+		if warning:
+			response["warning"] = warning
+		overspend = _overspend_info(user, doc.get("category"), dependent=doc.get("dependent"))
+		if overspend:
+			response["overspend"] = overspend
+		return response
+	except (ExpenseManagerError, AIError) as exc:
+		return {"success": False, "message": str(exc)}
+	except ConfigurationError:
+		frappe.logger("expense_manager").exception("api status=config_error create_expense_from_text")
+		return {
+			"success": False,
+			"message": frappe._("AI expense parsing isn't set up yet. Please contact your administrator."),
+		}
+
+
+@frappe.whitelist(methods=["POST"])
+def delete_expense(expense: str):
+	user = _current_user()
+	try:
+		ExpenseService.delete_expense(user, expense)
+		return {"success": True}
+	except ExpenseManagerError as exc:
+		return {"success": False, "message": str(exc)}
 
 
 def _overspend_info(owner_user: str, category: str, dependent=None) -> dict | None:
@@ -208,7 +208,13 @@ def _enrich_expenses(expenses: list[dict], lookup: dict[str, dict], user: str) -
 
 
 @frappe.whitelist(methods=["GET"])
-def list_expenses(dependent=None, category=None, date_from=None, date_to=None, limit=None):
+def list_expenses(
+	dependent: str | None = None,
+	category: str | None = None,
+	date_from: str | None = None,
+	date_to: str | None = None,
+	limit: int | None = None,
+):
 	user = _current_user()
 	try:
 		data = ExpenseService.list_expenses(
@@ -226,7 +232,7 @@ def list_expenses(dependent=None, category=None, date_from=None, date_to=None, l
 
 
 @frappe.whitelist(methods=["GET"])
-def get_recent_expenses(dependent=None, limit=10):
+def get_recent_expenses(dependent: str | None = None, limit: int = 10):
 	user = _current_user()
 	try:
 		data = ExpenseService.get_recent_expenses(user, dependent=dependent, limit=cint(limit))
@@ -237,7 +243,7 @@ def get_recent_expenses(dependent=None, limit=10):
 
 
 @frappe.whitelist(methods=["GET"])
-def get_expenses_by_category(category, dependent=None):
+def get_expenses_by_category(category: str, dependent: str | None = None):
 	user = _current_user()
 	try:
 		data = ExpenseService.get_expenses_by_category(user, category, dependent=dependent)
@@ -248,7 +254,7 @@ def get_expenses_by_category(category, dependent=None):
 
 
 @frappe.whitelist(methods=["GET"])
-def get_expenses_by_date_range(date_from, date_to, dependent=None):
+def get_expenses_by_date_range(date_from: str, date_to: str, dependent: str | None = None):
 	user = _current_user()
 	try:
 		data = ExpenseService.get_expenses_by_date_range(

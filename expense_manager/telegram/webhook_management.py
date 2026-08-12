@@ -7,7 +7,6 @@ import requests
 
 from expense_manager.telegram.config import get_telegram_bot_token, get_telegram_webhook_secret
 
-
 _WEBHOOK_METHOD_PATH = "/api/method/expense_manager.telegram.webhook.handle"
 _TELEGRAM_API_BASE_URL = "https://api.telegram.org"
 

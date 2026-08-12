@@ -8,72 +8,72 @@ from frappe.utils import getdate, today
 
 
 def _is_privileged_session_user() -> bool:
-    """Privileged sessions never have their owner_user rewritten."""
-    if frappe.session.user == "Administrator":
-        return True
-    return "System Manager" in frappe.get_roles(frappe.session.user)
+	"""Privileged sessions never have their owner_user rewritten."""
+	if frappe.session.user == "Administrator":
+		return True
+	return "System Manager" in frappe.get_roles(frappe.session.user)
 
 
 class Expense(Document):
-    def before_validate(self):
-        self.normalize_fields()
+	def before_validate(self):
+		self.normalize_fields()
 
-    def before_insert(self):
-        # Never trust a client-supplied owner_user. Bind the expense to
-        # the current session user unless we are running as Guest (the
-        # Telegram webhook job, which sets owner_user server-side after
-        # resolving the sender) or as a privileged manager.
-        if frappe.session.user != "Guest" and not _is_privileged_session_user():
-            self.owner_user = frappe.session.user
-        elif not self.owner_user:
-            self.owner_user = frappe.session.user
+	def before_insert(self):
+		# Never trust a client-supplied owner_user. Bind the expense to
+		# the current session user unless we are running as Guest (the
+		# Telegram webhook job, which sets owner_user server-side after
+		# resolving the sender) or as a privileged manager.
+		if frappe.session.user != "Guest" and not _is_privileged_session_user():
+			self.owner_user = frappe.session.user
+		elif not self.owner_user:
+			self.owner_user = frappe.session.user
 
-    def validate(self):
-        self.validate_required_fields()
-        self.validate_amount()
-        self.validate_expense_date()
-        self.validate_description()
-        self.validate_voice_transcript()
+	def validate(self):
+		self.validate_required_fields()
+		self.validate_amount()
+		self.validate_expense_date()
+		self.validate_description()
+		self.validate_voice_transcript()
 
-    def normalize_fields(self):
-        if self.owner_user:
-            self.owner_user = self.owner_user.strip()
+	def normalize_fields(self):
+		if self.owner_user:
+			self.owner_user = self.owner_user.strip()
 
-        if self.description:
-            self.description = self.description.strip()
+		if self.description:
+			self.description = self.description.strip()
 
-        if self.voice_transcript:
-            self.voice_transcript = self.voice_transcript.strip()
+		if self.voice_transcript:
+			self.voice_transcript = self.voice_transcript.strip()
 
-    def validate_required_fields(self):
-        if not self.owner_user:
-            frappe.throw(_("Owner User is required."))
+	def validate_required_fields(self):
+		if not self.owner_user:
+			frappe.throw(_("Owner User is required."))
 
-        if not self.category:
-            frappe.throw(_("Category is required."))
+		if not self.category:
+			frappe.throw(_("Category is required."))
 
-        if self.amount is None:
-            frappe.throw(_("Amount is required."))
+		if self.amount is None:
+			frappe.throw(_("Amount is required."))
 
-        if not self.expense_date:
-            frappe.throw(_("Expense Date is required."))
+		if not self.expense_date:
+			frappe.throw(_("Expense Date is required."))
 
-    def validate_amount(self):
-        if self.amount <= 0:
-            frappe.throw(_("Amount must be greater than zero."))
+	def validate_amount(self):
+		if self.amount <= 0:
+			frappe.throw(_("Amount must be greater than zero."))
 
-    def validate_expense_date(self):
-        if getdate(self.expense_date) > getdate(today()):
-            frappe.throw(_("Expense Date cannot be in the future."))
+	def validate_expense_date(self):
+		if getdate(self.expense_date) > getdate(today()):
+			frappe.throw(_("Expense Date cannot be in the future."))
 
-    def validate_description(self):
-        if self.description:
-            if not self.description.strip():
-                frappe.throw(_("Description cannot be empty."))
+	def validate_description(self):
+		if self.description:
+			if not self.description.strip():
+				frappe.throw(_("Description cannot be empty."))
 
-            if len(self.description) > 500:
-                frappe.throw(_("Description cannot exceed 500 characters."))
+			if len(self.description) > 500:
+				frappe.throw(_("Description cannot exceed 500 characters."))
 
-    def validate_voice_transcript(self):
-        if self.voice_transcript and len(self.voice_transcript) > 10000:
-            frappe.throw(_("Voice Transcript cannot exceed 10000 characters."))
+	def validate_voice_transcript(self):
+		if self.voice_transcript and len(self.voice_transcript) > 10000:
+			frappe.throw(_("Voice Transcript cannot exceed 10000 characters."))

@@ -3,10 +3,10 @@
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
-from expense_manager.telegram.services.telegram_service import TelegramService
+from expense_manager.services.exceptions import PocketMoneyExceededError, TelegramNotLinkedError
 from expense_manager.telegram.services import telegram_service
+from expense_manager.telegram.services.telegram_service import TelegramService
 from expense_manager.telegram.utils.constants import SEND_MESSAGE_TIMEOUT
-from expense_manager.services.exceptions import TelegramNotLinkedError, PocketMoneyExceededError
 
 
 class TestTelegramService(TestCase):
@@ -98,9 +98,7 @@ class TestTelegramServiceListCategories(TestCase):
 
 		self.assertTrue(result["success"])
 		self.assertEqual(result["data"], mock_categories)
-		mock_list.assert_called_once_with(
-			self.guardian_email, self.dependent_name, active_only=True
-		)
+		mock_list.assert_called_once_with(self.guardian_email, self.dependent_name, active_only=True)
 
 	def test_unlinked_user_gets_error(self):
 		"""Unlinked Telegram user should get an error message, not categories."""
@@ -113,6 +111,7 @@ class TestTelegramServiceListCategories(TestCase):
 
 		self.assertFalse(result["success"])
 		self.assertEqual(result["message"], "not linked")
+
 
 class TestBuildExpensesDisplay(TestCase):
 	"""Verify TelegramService.build_expenses_display groups correctly."""
@@ -141,11 +140,17 @@ class TestBuildExpensesDisplay(TestCase):
 		expenses = [self._make_expense("Food", 450), self._make_expense("Travel", 120)]
 		with (
 			self._patch_identity(is_dependent=True),
-			patch("expense_manager.telegram.services.telegram_service.ExpenseService.get_recent_expenses",
-				  return_value=expenses),
-			patch("expense_manager.telegram.services.telegram_service.DependentService.list_allowed_categories",
-				  return_value=[{"name": "food", "category_name": "Food"},
-								{"name": "travel", "category_name": "Travel"}]),
+			patch(
+				"expense_manager.telegram.services.telegram_service.ExpenseService.get_recent_expenses",
+				return_value=expenses,
+			),
+			patch(
+				"expense_manager.telegram.services.telegram_service.DependentService.list_allowed_categories",
+				return_value=[
+					{"name": "food", "category_name": "Food"},
+					{"name": "travel", "category_name": "Travel"},
+				],
+			),
 		):
 			result = TelegramService.build_expenses_display(self.telegram_user_id)
 		self.assertIn("Your recent expenses:", result)
@@ -157,8 +162,10 @@ class TestBuildExpensesDisplay(TestCase):
 	def test_dependent_view_no_expenses(self):
 		with (
 			self._patch_identity(is_dependent=True),
-			patch("expense_manager.telegram.services.telegram_service.ExpenseService.get_recent_expenses",
-				  return_value=[]),
+			patch(
+				"expense_manager.telegram.services.telegram_service.ExpenseService.get_recent_expenses",
+				return_value=[],
+			),
 		):
 			result = TelegramService.build_expenses_display(self.telegram_user_id)
 		self.assertEqual(result, "You don't have any recent expenses.")
@@ -167,12 +174,20 @@ class TestBuildExpensesDisplay(TestCase):
 		expenses = [self._make_expense("Food", 450)]
 		with (
 			self._patch_identity(is_dependent=False),
-			patch("expense_manager.telegram.services.telegram_service.ExpenseService.get_recent_expenses",
-				  side_effect=lambda _o, dependent=None, limit=10: expenses if dependent == ["is", "not set"] else []),
-			patch("expense_manager.telegram.services.telegram_service.CategoryService.list_categories",
-				  return_value=[{"name": "food", "category_name": "Food"}]),
-			patch("expense_manager.telegram.services.telegram_service.DependentService.list_dependents",
-				  return_value=[]),
+			patch(
+				"expense_manager.telegram.services.telegram_service.ExpenseService.get_recent_expenses",
+				side_effect=lambda _o, dependent=None, limit=10: expenses
+				if dependent == ["is", "not set"]
+				else [],
+			),
+			patch(
+				"expense_manager.telegram.services.telegram_service.CategoryService.list_categories",
+				return_value=[{"name": "food", "category_name": "Food"}],
+			),
+			patch(
+				"expense_manager.telegram.services.telegram_service.DependentService.list_dependents",
+				return_value=[],
+			),
 		):
 			result = TelegramService.build_expenses_display(self.telegram_user_id)
 		self.assertIn("Your recent expenses:", result)
@@ -182,21 +197,31 @@ class TestBuildExpensesDisplay(TestCase):
 	def test_guardian_group_dependents(self):
 		own = [self._make_expense("Food", 450)]
 		dep_exp = [self._make_expense("Travel", 120)]
+
 		def _fake_get_recent(owner_user, dependent=None, limit=10):
 			if dependent == ["is", "not set"]:
 				return own
 			if dependent == self.dependent_name:
 				return dep_exp
 			return []
+
 		with (
 			self._patch_identity(is_dependent=False),
-			patch("expense_manager.telegram.services.telegram_service.ExpenseService.get_recent_expenses",
-				  side_effect=_fake_get_recent),
-			patch("expense_manager.telegram.services.telegram_service.CategoryService.list_categories",
-				  return_value=[{"name": "food", "category_name": "Food"},
-								{"name": "travel", "category_name": "Travel"}]),
-			patch("expense_manager.telegram.services.telegram_service.DependentService.list_dependents",
-				  return_value=[{"name": self.dependent_name, "dependent_name": "Aarav"}]),
+			patch(
+				"expense_manager.telegram.services.telegram_service.ExpenseService.get_recent_expenses",
+				side_effect=_fake_get_recent,
+			),
+			patch(
+				"expense_manager.telegram.services.telegram_service.CategoryService.list_categories",
+				return_value=[
+					{"name": "food", "category_name": "Food"},
+					{"name": "travel", "category_name": "Travel"},
+				],
+			),
+			patch(
+				"expense_manager.telegram.services.telegram_service.DependentService.list_dependents",
+				return_value=[{"name": self.dependent_name, "dependent_name": "Aarav"}],
+			),
 		):
 			result = TelegramService.build_expenses_display(self.telegram_user_id)
 		self.assertIn("Your recent expenses:", result)
@@ -210,14 +235,21 @@ class TestBuildExpensesDisplay(TestCase):
 	def test_guardian_no_expenses(self):
 		def _fake_get_recent(owner_user, dependent=None, limit=10):
 			return []
+
 		with (
 			self._patch_identity(is_dependent=False),
-			patch("expense_manager.telegram.services.telegram_service.ExpenseService.get_recent_expenses",
-				  side_effect=_fake_get_recent),
-			patch("expense_manager.telegram.services.telegram_service.CategoryService.list_categories",
-				  return_value=[]),
-			patch("expense_manager.telegram.services.telegram_service.DependentService.list_dependents",
-				  return_value=[]),
+			patch(
+				"expense_manager.telegram.services.telegram_service.ExpenseService.get_recent_expenses",
+				side_effect=_fake_get_recent,
+			),
+			patch(
+				"expense_manager.telegram.services.telegram_service.CategoryService.list_categories",
+				return_value=[],
+			),
+			patch(
+				"expense_manager.telegram.services.telegram_service.DependentService.list_dependents",
+				return_value=[],
+			),
 		):
 			result = TelegramService.build_expenses_display(self.telegram_user_id)
 		self.assertEqual(result, "You don't have any recent expenses.")
@@ -230,6 +262,7 @@ class TestBuildExpensesDisplay(TestCase):
 		):
 			result = TelegramService.build_expenses_display(self.telegram_user_id)
 		self.assertEqual(result, "not linked")
+
 
 class TestTelegramServiceCreateExpenseHardBlock(TestCase):
 	"""TelegramService.create_expense enforces the pocket-money hard block
@@ -256,9 +289,13 @@ class TestTelegramServiceCreateExpenseHardBlock(TestCase):
 		data = {"category": "cat-food-dep-001", "amount": 200, "expense_date": "2026-07-27"}
 		with (
 			self._patch_identity(is_dependent=True),
-			patch("expense_manager.telegram.services.telegram_service.DependentService.list_allowed_categories",
-				  return_value=[{"name": "cat-food-dep-001", "category_name": "Food"}]),
-			patch("expense_manager.telegram.services.telegram_service.PocketMoneyService.enforce_available_balance") as mock_enforce,
+			patch(
+				"expense_manager.telegram.services.telegram_service.DependentService.list_allowed_categories",
+				return_value=[{"name": "cat-food-dep-001", "category_name": "Food"}],
+			),
+			patch(
+				"expense_manager.telegram.services.telegram_service.PocketMoneyService.enforce_available_balance"
+			) as mock_enforce,
 			patch("expense_manager.telegram.services.telegram_service.ExpenseService.create_expense"),
 			patch.object(TelegramService, "_get_overspend_warning", return_value=""),
 		):
@@ -273,10 +310,16 @@ class TestTelegramServiceCreateExpenseHardBlock(TestCase):
 		data = {"category": "cat-food-001", "amount": 200, "expense_date": "2026-07-27"}
 		with (
 			self._patch_identity(is_dependent=True),
-			patch("expense_manager.telegram.services.telegram_service.DependentService.list_allowed_categories",
-				  return_value=[{"name": "cat-gym-001", "category_name": "Gym"}]),
-			patch("expense_manager.telegram.services.telegram_service.PocketMoneyService.enforce_available_balance"),
-			patch("expense_manager.telegram.services.telegram_service.ExpenseService.create_expense") as mock_create,
+			patch(
+				"expense_manager.telegram.services.telegram_service.DependentService.list_allowed_categories",
+				return_value=[{"name": "cat-gym-001", "category_name": "Gym"}],
+			),
+			patch(
+				"expense_manager.telegram.services.telegram_service.PocketMoneyService.enforce_available_balance"
+			),
+			patch(
+				"expense_manager.telegram.services.telegram_service.ExpenseService.create_expense"
+			) as mock_create,
 		):
 			result = TelegramService.create_expense(self.telegram_user_id, data)
 
@@ -288,9 +331,15 @@ class TestTelegramServiceCreateExpenseHardBlock(TestCase):
 		data = {"category": "cat-food-dep-001", "amount": 500, "expense_date": "2026-07-27"}
 		with (
 			self._patch_identity(is_dependent=True),
-			patch("expense_manager.telegram.services.telegram_service.PocketMoneyService.enforce_available_balance",
-			      side_effect=PocketMoneyExceededError("Not enough pocket money: ₹0.0 available but this costs ₹500.0.")) as mock_enforce,
-			patch("expense_manager.telegram.services.telegram_service.ExpenseService.create_expense") as mock_create,
+			patch(
+				"expense_manager.telegram.services.telegram_service.PocketMoneyService.enforce_available_balance",
+				side_effect=PocketMoneyExceededError(
+					"Not enough pocket money: ₹0.0 available but this costs ₹500.0."
+				),
+			) as mock_enforce,
+			patch(
+				"expense_manager.telegram.services.telegram_service.ExpenseService.create_expense"
+			) as mock_create,
 		):
 			result = TelegramService.create_expense(self.telegram_user_id, data)
 
@@ -303,8 +352,12 @@ class TestTelegramServiceCreateExpenseHardBlock(TestCase):
 		data = {"category": "cat-food-001", "amount": 200, "expense_date": "2026-07-27"}
 		with (
 			self._patch_identity(is_dependent=False),
-			patch("expense_manager.telegram.services.telegram_service.PocketMoneyService.enforce_available_balance") as mock_enforce,
-			patch("expense_manager.telegram.services.telegram_service.ExpenseService.create_expense") as mock_create,
+			patch(
+				"expense_manager.telegram.services.telegram_service.PocketMoneyService.enforce_available_balance"
+			) as mock_enforce,
+			patch(
+				"expense_manager.telegram.services.telegram_service.ExpenseService.create_expense"
+			) as mock_create,
 			patch.object(TelegramService, "_get_overspend_warning", return_value=""),
 		):
 			TelegramService.create_expense(self.telegram_user_id, data)

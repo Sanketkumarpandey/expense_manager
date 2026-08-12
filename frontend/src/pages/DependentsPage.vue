@@ -1,537 +1,598 @@
 <template>
-  <div class="space-y-6">
-    <div class="flex items-center justify-between">
-      <p class="text-sm text-ink-gray-5">
-        {{ dependents.length }} {{ dependents.length === 1 ? 'dependent' : 'dependents' }}
-      </p>
-      <div class="flex items-center gap-2">
-        <div class="flex items-center gap-1 rounded-lg bg-surface-gray-2 p-1">
-          <button
-            v-for="mode in viewModes"
-            :key="mode.value"
-            type="button"
-            class="rounded-md px-3 py-1.5 text-sm transition-colors"
-            :class="view === mode.value
-              ? 'bg-surface-white font-medium text-ink-gray-9 shadow-sm'
-              : 'text-ink-gray-6 hover:text-ink-gray-8'"
-            @click="setView(mode.value)"
-          >
-            {{ mode.label }}
-          </button>
-        </div>
-        <Button variant="solid" size="sm" @click="openCreate">
-          <template #prefix>
-            <span class="lucide-plus size-4 text-white" />
-          </template>
-          New dependent
-        </Button>
-      </div>
-    </div>
+	<div class="space-y-6">
+		<div class="flex items-center justify-between">
+			<p class="text-sm text-ink-gray-5">
+				{{ dependents.length }} {{ dependents.length === 1 ? "dependent" : "dependents" }}
+			</p>
+			<div class="flex items-center gap-2">
+				<div class="flex items-center gap-1 rounded-lg bg-surface-gray-2 p-1">
+					<button
+						v-for="mode in viewModes"
+						:key="mode.value"
+						type="button"
+						class="rounded-md px-3 py-1.5 text-sm transition-colors"
+						:class="
+							view === mode.value
+								? 'bg-surface-white font-medium text-ink-gray-9 shadow-sm'
+								: 'text-ink-gray-6 hover:text-ink-gray-8'
+						"
+						@click="setView(mode.value)"
+					>
+						{{ mode.label }}
+					</button>
+				</div>
+				<Button variant="solid" size="sm" @click="openCreate">
+					<template #prefix>
+						<span class="lucide-plus size-4 text-white" />
+					</template>
+					New dependent
+				</Button>
+			</div>
+		</div>
 
-    <ResourceState :resource="list" label="your dependents">
-      <template #skeleton>
-        <div class="space-y-4">
-          <div v-for="i in 3" :key="i" class="h-40 animate-pulse rounded-lg bg-surface-gray-2" />
-        </div>
-      </template>
+		<ResourceState :resource="list" label="your dependents">
+			<template #skeleton>
+				<div class="space-y-4">
+					<div
+						v-for="i in 3"
+						:key="i"
+						class="h-40 animate-pulse rounded-lg bg-surface-gray-2"
+					/>
+				</div>
+			</template>
 
-      <EmptyState
-        v-if="dependents.length === 0"
-        :icon="Users"
-        :title="view === 'active' ? 'No active dependents' : 'No dependents found'"
-        :description="view === 'active' ? 'Add your first dependent to track pocket money and allowances.' : 'Archived dependents will show up here.'"
-      >
-        <template v-if="view === 'active'" #action>
-          <Button variant="solid" size="sm" @click="openCreate">Add dependent</Button>
-        </template>
-      </EmptyState>
+			<EmptyState
+				v-if="dependents.length === 0"
+				:icon="Users"
+				:title="view === 'active' ? 'No active dependents' : 'No dependents found'"
+				:description="
+					view === 'active'
+						? 'Add your first dependent to track pocket money and allowances.'
+						: 'Archived dependents will show up here.'
+				"
+			>
+				<template v-if="view === 'active'" #action>
+					<Button variant="solid" size="sm" @click="openCreate">Add dependent</Button>
+				</template>
+			</EmptyState>
 
-      <div v-else class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div
-          v-for="dep in dependents"
-          :key="dep.name"
-          class="flex flex-col justify-between rounded-lg border border-outline-gray-1 bg-surface-white p-5 space-y-4"
-        >
-          <div>
-            <div class="flex items-start justify-between gap-3">
-              <div class="flex items-center gap-3">
-                <span class="grid size-10 shrink-0 place-items-center rounded-lg bg-surface-gray-2 text-xl">
-                  👤
-                </span>
-                <div>
-                  <div class="flex items-center gap-2">
-                    <p class="text-base font-semibold text-ink-gray-9">{{ dep.dependent_name }}</p>
-                    <span class="rounded bg-surface-blue-1 px-2 py-0.5 text-xs font-medium text-ink-blue-5">
-                      {{ dep.relationship }}
-                    </span>
-                    <span v-if="!dep.is_active" class="rounded bg-surface-gray-2 px-1.5 py-0.5 text-xs text-ink-gray-5">
-                      Archived
-                    </span>
-                  </div>
-                  <p class="text-xs text-ink-gray-5">
-                    Added {{ formatDate(dep.creation) }}
-                    <span v-if="dep.telegram_username"> · @{{ dep.telegram_username }}</span>
-                  </p>
-                </div>
-              </div>
+			<div v-else class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+				<div
+					v-for="dep in dependents"
+					:key="dep.name"
+					class="flex flex-col justify-between rounded-lg border border-outline-gray-1 bg-surface-white p-5 space-y-4"
+				>
+					<div>
+						<div class="flex items-start justify-between gap-3">
+							<div class="flex items-center gap-3">
+								<span
+									class="grid size-10 shrink-0 place-items-center rounded-lg bg-surface-gray-2 text-xl"
+								>
+									👤
+								</span>
+								<div>
+									<div class="flex items-center gap-2">
+										<p class="text-base font-semibold text-ink-gray-9">
+											{{ dep.dependent_name }}
+										</p>
+										<span
+											class="rounded bg-surface-blue-1 px-2 py-0.5 text-xs font-medium text-ink-blue-5"
+										>
+											{{ dep.relationship }}
+										</span>
+										<span
+											v-if="!dep.is_active"
+											class="rounded bg-surface-gray-2 px-1.5 py-0.5 text-xs text-ink-gray-5"
+										>
+											Archived
+										</span>
+									</div>
+									<p class="text-xs text-ink-gray-5">
+										Added {{ formatDate(dep.creation) }}
+										<span v-if="dep.telegram_username">
+											· @{{ dep.telegram_username }}</span
+										>
+									</p>
+								</div>
+							</div>
 
-              <RowActionsMenu :items="rowActions(dep)" />
-            </div>
+							<RowActionsMenu :items="rowActions(dep)" />
+						</div>
 
-            <!-- Stats & Allowance section -->
-            <div class="mt-4 grid grid-cols-2 gap-3 rounded-md bg-surface-gray-1 p-3">
-              <div>
-                <p class="text-xs text-ink-gray-5">Monthly Allowance</p>
-                <p class="mt-0.5 text-sm font-semibold text-ink-gray-9">
-                  {{ inr(dep.default_monthly_allowance) }}
-                </p>
-              </div>
-              <div>
-                <p class="text-xs text-ink-gray-5">Total Savings</p>
-                <p class="mt-0.5 text-sm font-semibold text-ink-green-3">
-                  {{ inr(savingsOf(dep)) }}
-                </p>
-                <p v-if="bankedSavingsOf(dep)" class="mt-0.5 text-xs text-ink-gray-5">
-                  Plus {{ inr(bankedSavingsOf(dep)) }} banked
-                </p>
-              </div>
-            </div>
+						<!-- Stats & Allowance section -->
+						<div class="mt-4 grid grid-cols-2 gap-3 rounded-md bg-surface-gray-1 p-3">
+							<div>
+								<p class="text-xs text-ink-gray-5">Monthly Allowance</p>
+								<p class="mt-0.5 text-sm font-semibold text-ink-gray-9">
+									{{ inr(dep.default_monthly_allowance) }}
+								</p>
+							</div>
+							<div>
+								<p class="text-xs text-ink-gray-5">Total Savings</p>
+								<p class="mt-0.5 text-sm font-semibold text-ink-green-3">
+									{{ inr(savingsOf(dep)) }}
+								</p>
+								<p
+									v-if="bankedSavingsOf(dep)"
+									class="mt-0.5 text-xs text-ink-gray-5"
+								>
+									Plus {{ inr(bankedSavingsOf(dep)) }} banked
+								</p>
+							</div>
+						</div>
 
-            <!-- Pocket Money Balance Card -->
-            <div class="mt-3 rounded-md border border-outline-gray-1 bg-surface-white p-3">
-              <div class="flex items-center justify-between">
-                <p class="text-xs font-medium text-ink-gray-7">Pocket Money Allocation</p>
-                <div class="flex items-center gap-2">
-                  <Button
-                    v-if="dep.is_active"
-                    variant="subtle"
-                    size="sm"
-                    title="Manual Rollover"
-                    :loading="rollingOver === dep.name"
-                    @click="triggerRollover(dep)"
-                  >
-                    <template #prefix>
-                      <RefreshCw class="size-3.5" />
-                    </template>
-                    Rollover
-                  </Button>
-                  <Button
-                    v-if="dep.is_active"
-                    variant="outline"
-                    size="sm"
-                    @click="openPocketMoney(dep)"
-                  >
-                    <template #prefix>
-                      <Coins class="size-3.5" />
-                    </template>
-                    {{ balanceOf(dep.name) ? 'Update' : 'Allocate' }}
-                  </Button>
-                </div>
-              </div>
+						<!-- Pocket Money Balance Card -->
+						<div
+							class="mt-3 rounded-md border border-outline-gray-1 bg-surface-white p-3"
+						>
+							<div class="flex items-center justify-between">
+								<p class="text-xs font-medium text-ink-gray-7">
+									Pocket Money Allocation
+								</p>
+								<div class="flex items-center gap-2">
+									<Button
+										v-if="dep.is_active"
+										variant="subtle"
+										size="sm"
+										title="Manual Rollover"
+										:loading="rollingOver === dep.name"
+										@click="triggerRollover(dep)"
+									>
+										<template #prefix>
+											<RefreshCw class="size-3.5" />
+										</template>
+										Rollover
+									</Button>
+									<Button
+										v-if="dep.is_active"
+										variant="outline"
+										size="sm"
+										@click="openPocketMoney(dep)"
+									>
+										<template #prefix>
+											<Coins class="size-3.5" />
+										</template>
+										{{ balanceOf(dep.name) ? "Update" : "Allocate" }}
+									</Button>
+								</div>
+							</div>
 
-              <div v-if="balanceOf(dep.name)" class="mt-2 space-y-1.5 text-xs">
-                <div class="flex justify-between items-center text-ink-gray-7">
-                  <span>Period: {{ balanceOf(dep.name).allocation_period || 'Monthly' }}</span>
-                  <span
-                    class="font-medium"
-                    :class="balanceOf(dep.name).remaining_amount < 0 ? 'text-ink-red-5 font-semibold' : 'text-ink-gray-9'"
-                  >
-                    <span v-if="balanceOf(dep.name).remaining_amount < 0">
-                      Over by {{ inr(Math.abs(balanceOf(dep.name).remaining_amount)) }}
-                    </span>
-                    <span v-else>
-                      Remaining: {{ inr(balanceOf(dep.name).remaining_amount) }}
-                    </span>
-                  </span>
-                </div>
-                <div class="h-2.5 overflow-hidden rounded-full bg-surface-gray-2">
-                  <div
-                    class="h-full rounded-full transition-all"
-                    :class="[
-                      balanceOf(dep.name).remaining_amount < 0
-                        ? 'bg-surface-red-6'
-                        : balancePct(dep.name) >= 90
-                          ? 'bg-surface-amber-5'
-                          : 'bg-surface-blue-3'
-                    ]"
-                    :style="{ width: `${Math.min(balancePct(dep.name), 100)}%` }"
-                  />
-                </div>
-                <div class="flex justify-between text-xs text-ink-gray-5">
-                  <span>Allocated: {{ inr(balanceOf(dep.name).allocated_amount) }}</span>
-                  <span>Spent: {{ inr(balanceOf(dep.name).spent_amount) }} ({{ balancePct(dep.name) }}%)</span>
-                </div>
-              </div>
-              <div v-else class="mt-2 text-xs text-ink-gray-5">
-                No active pocket money allocation set.
-              </div>
-            </div>
+							<div v-if="balanceOf(dep.name)" class="mt-2 space-y-1.5 text-xs">
+								<div class="flex justify-between items-center text-ink-gray-7">
+									<span
+										>Period:
+										{{
+											balanceOf(dep.name).allocation_period || "Monthly"
+										}}</span
+									>
+									<span
+										class="font-medium"
+										:class="
+											balanceOf(dep.name).remaining_amount < 0
+												? 'text-ink-red-5 font-semibold'
+												: 'text-ink-gray-9'
+										"
+									>
+										<span v-if="balanceOf(dep.name).remaining_amount < 0">
+											Over by
+											{{
+												inr(Math.abs(balanceOf(dep.name).remaining_amount))
+											}}
+										</span>
+										<span v-else>
+											Remaining:
+											{{ inr(balanceOf(dep.name).remaining_amount) }}
+										</span>
+									</span>
+								</div>
+								<div class="h-2.5 overflow-hidden rounded-full bg-surface-gray-2">
+									<div
+										class="h-full rounded-full transition-all"
+										:class="[
+											balanceOf(dep.name).remaining_amount < 0
+												? 'bg-surface-red-6'
+												: balancePct(dep.name) >= 90
+												? 'bg-surface-amber-5'
+												: 'bg-surface-blue-3',
+										]"
+										:style="{
+											width: `${Math.min(balancePct(dep.name), 100)}%`,
+										}"
+									/>
+								</div>
+								<div class="flex justify-between text-xs text-ink-gray-5">
+									<span
+										>Allocated:
+										{{ inr(balanceOf(dep.name).allocated_amount) }}</span
+									>
+									<span
+										>Spent: {{ inr(balanceOf(dep.name).spent_amount) }} ({{
+											balancePct(dep.name)
+										}}%)</span
+									>
+								</div>
+							</div>
+							<div v-else class="mt-2 text-xs text-ink-gray-5">
+								No active pocket money allocation set.
+							</div>
+						</div>
 
-            <!-- Dependent Portal Link Row -->
-            <div class="mt-3 flex items-center justify-between gap-2 rounded-md bg-surface-gray-1 px-3 py-2 text-xs">
-              <div class="flex min-w-0 items-center gap-2 text-ink-gray-7">
-                <ExternalLink class="size-3.5 shrink-0 text-ink-blue-4" />
-                <span class="truncate font-mono text-[11px] text-ink-gray-6">
-                  /dependent/{{ dep.access_token ? dep.access_token.slice(0, 12) + '…' : dep.name }}
-                </span>
-              </div>
-              <div class="flex items-center gap-1.5 shrink-0">
-                <Button
-                  variant="subtle"
-                  size="sm"
-                  class="h-7 px-2 text-xs text-ink-gray-7 hover:text-ink-blue-4"
-                  title="Copy full portal link"
-                  @click="copyPortalLink(dep)"
-                >
-                  <template #prefix>
-                    <Copy class="size-3.5" />
-                  </template>
-                  Copy link
-                </Button>
-                <a
-                  :href="getPortalUrl(dep)"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="inline-flex h-7 items-center justify-center rounded-md px-2 text-xs font-medium text-ink-gray-7 hover:bg-surface-gray-2 hover:text-ink-blue-4 transition-colors"
-                  title="Open portal in new tab"
-                >
-                  <ExternalLink class="size-3.5" />
-                </a>
-              </div>
-            </div>
+						<!-- Dependent Portal Link Row -->
+						<div
+							class="mt-3 flex items-center justify-between gap-2 rounded-md bg-surface-gray-1 px-3 py-2 text-xs"
+						>
+							<div class="flex min-w-0 items-center gap-2 text-ink-gray-7">
+								<ExternalLink class="size-3.5 shrink-0 text-ink-blue-4" />
+								<span class="truncate font-mono text-[11px] text-ink-gray-6">
+									/dependent/{{
+										dep.access_token
+											? dep.access_token.slice(0, 12) + "…"
+											: dep.name
+									}}
+								</span>
+							</div>
+							<div class="flex items-center gap-1.5 shrink-0">
+								<Button
+									variant="subtle"
+									size="sm"
+									class="h-7 px-2 text-xs text-ink-gray-7 hover:text-ink-blue-4"
+									title="Copy full portal link"
+									@click="copyPortalLink(dep)"
+								>
+									<template #prefix>
+										<Copy class="size-3.5" />
+									</template>
+									Copy link
+								</Button>
+								<a
+									:href="getPortalUrl(dep)"
+									target="_blank"
+									rel="noopener noreferrer"
+									class="inline-flex h-7 items-center justify-center rounded-md px-2 text-xs font-medium text-ink-gray-7 hover:bg-surface-gray-2 hover:text-ink-blue-4 transition-colors"
+									title="Open portal in new tab"
+								>
+									<ExternalLink class="size-3.5" />
+								</a>
+							</div>
+						</div>
 
-            <AllowedCategoriesSection :dependent="dep" />
-          </div>
+						<AllowedCategoriesSection :dependent="dep" />
+					</div>
 
-          <div class="flex items-center justify-between border-t border-outline-gray-1 pt-2 text-xs text-ink-gray-5">
-            <span>Carry forward: {{ dep.allow_carry_forward ? 'Enabled' : 'Disabled' }}</span>
-            <span>Created {{ formatDate(dep.creation) }}</span>
-          </div>
-        </div>
-      </div>
-    </ResourceState>
+					<div
+						class="flex items-center justify-between border-t border-outline-gray-1 pt-2 text-xs text-ink-gray-5"
+					>
+						<span
+							>Carry forward:
+							{{ dep.allow_carry_forward ? "Enabled" : "Disabled" }}</span
+						>
+						<span>Created {{ formatDate(dep.creation) }}</span>
+					</div>
+				</div>
+			</div>
+		</ResourceState>
 
-    <DependentFormDialog v-model:open="formOpen" :dependent="editingDep" @saved="onSaved" />
+		<DependentFormDialog v-model:open="formOpen" :dependent="editingDep" @saved="onSaved" />
 
-    <PocketMoneyFormDialog
-      v-model:open="pocketOpen"
-      :dependent="targetDep"
-      :allocation="targetAllocation"
-      @saved="onPocketMoneySaved"
-    />
+		<PocketMoneyFormDialog
+			v-model:open="pocketOpen"
+			:dependent="targetDep"
+			:allocation="targetAllocation"
+			@saved="onPocketMoneySaved"
+		/>
 
-    <ConfirmDialog
-      v-model:open="confirmOpen"
-      title="Delete dependent?"
-      :message="deleteMessage"
-      confirm-label="Delete"
-      :loading="deleting"
-      @confirm="confirmDelete"
-    />
-  </div>
+		<ConfirmDialog
+			v-model:open="confirmOpen"
+			title="Delete dependent?"
+			:message="deleteMessage"
+			confirm-label="Delete"
+			:loading="deleting"
+			@confirm="confirmDelete"
+		/>
+	</div>
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
-import { Button, call, createResource, request, toast } from 'frappe-ui'
-import Pencil from '~icons/lucide/pencil'
-import Archive from '~icons/lucide/archive'
-import RotateCcw from '~icons/lucide/rotate-ccw'
-import Trash2 from '~icons/lucide/trash-2'
-import RefreshCw from '~icons/lucide/refresh-cw'
-import Coins from '~icons/lucide/coins'
-import Copy from '~icons/lucide/copy'
-import ExternalLink from '~icons/lucide/external-link'
-import ResourceState from '@/components/ResourceState.vue'
-import DependentFormDialog from '@/components/DependentFormDialog.vue'
-import PocketMoneyFormDialog from '@/components/PocketMoneyFormDialog.vue'
-import ConfirmDialog from '@/components/ConfirmDialog.vue'
-import AllowedCategoriesSection from '@/components/AllowedCategoriesSection.vue'
-import RowActionsMenu from '@/components/RowActionsMenu.vue'
-import EmptyState from '@/components/EmptyState.vue'
-import Users from '~icons/lucide/users'
+import { computed, reactive, ref, watch } from "vue";
+import { Button, call, createResource, request, toast } from "frappe-ui";
+import Pencil from "~icons/lucide/pencil";
+import Archive from "~icons/lucide/archive";
+import RotateCcw from "~icons/lucide/rotate-ccw";
+import Trash2 from "~icons/lucide/trash-2";
+import RefreshCw from "~icons/lucide/refresh-cw";
+import Coins from "~icons/lucide/coins";
+import Copy from "~icons/lucide/copy";
+import ExternalLink from "~icons/lucide/external-link";
+import ResourceState from "@/components/ResourceState.vue";
+import DependentFormDialog from "@/components/DependentFormDialog.vue";
+import PocketMoneyFormDialog from "@/components/PocketMoneyFormDialog.vue";
+import ConfirmDialog from "@/components/ConfirmDialog.vue";
+import AllowedCategoriesSection from "@/components/AllowedCategoriesSection.vue";
+import RowActionsMenu from "@/components/RowActionsMenu.vue";
+import EmptyState from "@/components/EmptyState.vue";
+import Users from "~icons/lucide/users";
 
 const viewModes = [
-  { value: 'active', label: 'Active' },
-  { value: 'all', label: 'All' },
-]
+	{ value: "active", label: "Active" },
+	{ value: "all", label: "All" },
+];
 
-const view = ref('active')
+const view = ref("active");
 
 const list = createResource({
-  url: 'expense_manager.api.dependents.list_dependents',
-  method: 'GET',
-  auto: true,
-  makeParams: () => ({ active_only: view.value === 'active' ? 1 : 0 }),
-})
+	url: "expense_manager.api.dependents.list_dependents",
+	method: "GET",
+	auto: true,
+	makeParams: () => ({ active_only: view.value === "active" ? 1 : 0 }),
+});
 
-const dependents = computed(() => list.data || [])
+const dependents = computed(() => list.data || []);
 
 function setView(value) {
-  view.value = value
-  list.fetch()
+	view.value = value;
+	list.fetch();
 }
 
-const balances = reactive({})
+const balances = reactive({});
 
 async function fetchBalances() {
-  const deps = list.data || []
-  for (const dep of deps) {
-    try {
-      const res = await request({
-        url: '/api/method/expense_manager.api.pocket_money.get_balance',
-        params: { dependent: dep.name },
-      })
-      balances[dep.name] = res.message && res.message.success !== false ? res.message : null
-    } catch (e) {
-      balances[dep.name] = null
-    }
-  }
+	const deps = list.data || [];
+	for (const dep of deps) {
+		try {
+			const res = await request({
+				url: "/api/method/expense_manager.api.pocket_money.get_balance",
+				params: { dependent: dep.name },
+			});
+			balances[dep.name] = res.message && res.message.success !== false ? res.message : null;
+		} catch (e) {
+			balances[dep.name] = null;
+		}
+	}
 }
 
 watch(
-  () => list.data,
-  () => {
-    if (list.data) fetchBalances()
-  },
-  { immediate: true },
-)
+	() => list.data,
+	() => {
+		if (list.data) fetchBalances();
+	},
+	{ immediate: true }
+);
 
 function balanceOf(depName) {
-  return balances[depName] || null
+	return balances[depName] || null;
 }
 
 function savingsOf(dep) {
-  const b = balanceOf(dep.name)
-  if (b && b.remaining_amount !== undefined) return b.remaining_amount
-  return dep.total_savings || 0
+	const b = balanceOf(dep.name);
+	if (b && b.remaining_amount !== undefined) return b.remaining_amount;
+	return dep.total_savings || 0;
 }
 
 function bankedSavingsOf(dep) {
-  const b = balanceOf(dep.name)
-  const banked = b && b.total_savings ? b.total_savings : 0
-  return banked > 0 ? banked : null
+	const b = balanceOf(dep.name);
+	const banked = b && b.total_savings ? b.total_savings : 0;
+	return banked > 0 ? banked : null;
 }
 
 function balancePct(depName) {
-  const b = balanceOf(depName)
-  if (!b || !b.total_available_amount) return 0
-  const pct = (b.spent_amount / b.total_available_amount) * 100
-  return Math.round(pct)
+	const b = balanceOf(depName);
+	if (!b || !b.total_available_amount) return 0;
+	const pct = (b.spent_amount / b.total_available_amount) * 100;
+	return Math.round(pct);
 }
 
-const formOpen = ref(false)
-const editingDep = ref(null)
+const formOpen = ref(false);
+const editingDep = ref(null);
 
 function openCreate() {
-  editingDep.value = null
-  formOpen.value = true
+	editingDep.value = null;
+	formOpen.value = true;
 }
 
 function openEdit(dep) {
-  editingDep.value = dep
-  formOpen.value = true
+	editingDep.value = dep;
+	formOpen.value = true;
 }
 
 function onSaved() {
-  list.reload()
-  toast.success(editingDep.value ? 'Dependent updated.' : 'Dependent created.')
+	list.reload();
+	toast.success(editingDep.value ? "Dependent updated." : "Dependent created.");
 }
 
-const pocketOpen = ref(false)
-const targetDep = ref(null)
-const targetAllocation = ref(null)
+const pocketOpen = ref(false);
+const targetDep = ref(null);
+const targetAllocation = ref(null);
 
 async function openPocketMoney(dep) {
-  targetDep.value = dep
-  const bal = balanceOf(dep.name)
-  targetAllocation.value = bal ? { name: bal.allocation } : null
-  pocketOpen.value = true
+	targetDep.value = dep;
+	const bal = balanceOf(dep.name);
+	targetAllocation.value = bal ? { name: bal.allocation } : null;
+	pocketOpen.value = true;
 }
 
 function onPocketMoneySaved() {
-  fetchBalances()
-  toast.success('Pocket money allocation updated.')
+	fetchBalances();
+	toast.success("Pocket money allocation updated.");
 }
 
-const rollingOver = ref(null)
+const rollingOver = ref(null);
 
 async function triggerRollover(dep) {
-  rollingOver.value = dep.name
-  try {
-    const result = await call('expense_manager.api.pocket_money.rollover_allocation', {
-      dependent: dep.name,
-    })
-    if (result && result.success === false) {
-      toast.error(result.message)
-    } else {
-      toast.success(`Pocket money rolled over for ${dep.dependent_name}.`)
-      list.reload()
-      fetchBalances()
-    }
-  } catch (e) {
-    toast.error(e.message || 'Could not perform rollover.')
-  } finally {
-    rollingOver.value = null
-  }
+	rollingOver.value = dep.name;
+	try {
+		const result = await call("expense_manager.api.pocket_money.rollover_allocation", {
+			dependent: dep.name,
+		});
+		if (result && result.success === false) {
+			toast.error(result.message);
+		} else {
+			toast.success(`Pocket money rolled over for ${dep.dependent_name}.`);
+			list.reload();
+			fetchBalances();
+		}
+	} catch (e) {
+		toast.error(e.message || "Could not perform rollover.");
+	} finally {
+		rollingOver.value = null;
+	}
 }
 
-const archiving = ref(null)
-const restoring = ref(null)
+const archiving = ref(null);
+const restoring = ref(null);
 
 async function archiveDep(dep) {
-  archiving.value = dep.name
-  try {
-    const result = await call('expense_manager.api.dependents.archive_dependent', {
-      dependent: dep.name,
-    })
-    if (result && result.success === false) {
-      toast.error(result.message)
-    } else {
-      toast.success(`Dependent "${dep.dependent_name}" archived.`)
-      list.reload()
-    }
-  } catch (e) {
-    toast.error(e.message || 'Could not archive the dependent.')
-  } finally {
-    archiving.value = null
-  }
+	archiving.value = dep.name;
+	try {
+		const result = await call("expense_manager.api.dependents.archive_dependent", {
+			dependent: dep.name,
+		});
+		if (result && result.success === false) {
+			toast.error(result.message);
+		} else {
+			toast.success(`Dependent "${dep.dependent_name}" archived.`);
+			list.reload();
+		}
+	} catch (e) {
+		toast.error(e.message || "Could not archive the dependent.");
+	} finally {
+		archiving.value = null;
+	}
 }
 
 async function restoreDep(dep) {
-  restoring.value = dep.name
-  try {
-    const result = await call('expense_manager.api.dependents.restore_dependent', {
-      dependent: dep.name,
-    })
-    if (result && result.success === false) {
-      toast.error(result.message)
-    } else {
-      toast.success(`Dependent "${dep.dependent_name}" restored.`)
-      list.reload()
-    }
-  } catch (e) {
-    toast.error(e.message || 'Could not restore the dependent.')
-  } finally {
-    restoring.value = null
-  }
+	restoring.value = dep.name;
+	try {
+		const result = await call("expense_manager.api.dependents.restore_dependent", {
+			dependent: dep.name,
+		});
+		if (result && result.success === false) {
+			toast.error(result.message);
+		} else {
+			toast.success(`Dependent "${dep.dependent_name}" restored.`);
+			list.reload();
+		}
+	} catch (e) {
+		toast.error(e.message || "Could not restore the dependent.");
+	} finally {
+		restoring.value = null;
+	}
 }
 
-const confirmOpen = ref(false)
-const deleting = ref(false)
-const deleteTarget = ref(null)
+const confirmOpen = ref(false);
+const deleting = ref(false);
+const deleteTarget = ref(null);
 const deleteMessage = computed(() =>
-  deleteTarget.value
-    ? `Delete "${deleteTarget.value.dependent_name}"? This cannot be undone.`
-    : '',
-)
+	deleteTarget.value
+		? `Delete "${deleteTarget.value.dependent_name}"? This cannot be undone.`
+		: ""
+);
 
 function requestDelete(dep) {
-  deleteTarget.value = dep
-  confirmOpen.value = true
+	deleteTarget.value = dep;
+	confirmOpen.value = true;
 }
 
 async function confirmDelete() {
-  deleting.value = true
-  try {
-    const result = await call('expense_manager.api.dependents.delete_dependent', {
-      dependent: deleteTarget.value.name,
-    })
-    if (result && result.success === false) {
-      toast.error(result.message)
-    } else {
-      toast.success(`Dependent "${deleteTarget.value.dependent_name}" deleted.`)
-      list.reload()
-    }
-    confirmOpen.value = false
-  } catch (e) {
-    toast.error(e.message || 'Could not delete dependent.')
-    confirmOpen.value = false
-  } finally {
-    deleting.value = false
-  }
+	deleting.value = true;
+	try {
+		const result = await call("expense_manager.api.dependents.delete_dependent", {
+			dependent: deleteTarget.value.name,
+		});
+		if (result && result.success === false) {
+			toast.error(result.message);
+		} else {
+			toast.success(`Dependent "${deleteTarget.value.dependent_name}" deleted.`);
+			list.reload();
+		}
+		confirmOpen.value = false;
+	} catch (e) {
+		toast.error(e.message || "Could not delete dependent.");
+		confirmOpen.value = false;
+	} finally {
+		deleting.value = false;
+	}
 }
 
 function formatDate(value) {
-  if (!value) return ''
-  return new Date(value).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
+	if (!value) return "";
+	return new Date(value).toLocaleDateString("en-IN", {
+		day: "numeric",
+		month: "short",
+		year: "numeric",
+	});
 }
 
 const inr = (value) =>
-  new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(value || 0)
+	new Intl.NumberFormat("en-IN", {
+		style: "currency",
+		currency: "INR",
+		minimumFractionDigits: 0,
+		maximumFractionDigits: 2,
+	}).format(value || 0);
 
 function getPortalUrl(dep) {
-  const token = dep.access_token || dep.name
-  return `${window.location.origin}/dependent/${token}`
+	const token = dep.access_token || dep.name;
+	return `${window.location.origin}/dependent/${token}`;
 }
 
 async function copyPortalLink(dep) {
-  const url = getPortalUrl(dep)
-  try {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      await navigator.clipboard.writeText(url)
-    } else {
-      const el = document.createElement('textarea')
-      el.value = url
-      document.body.appendChild(el)
-      el.select()
-      document.execCommand('copy')
-      document.body.removeChild(el)
-    }
-    toast.success(`Portal link for ${dep.dependent_name} copied!`)
-  } catch (e) {
-    toast.error('Could not copy link to clipboard.')
-  }
+	const url = getPortalUrl(dep);
+	try {
+		if (navigator.clipboard && navigator.clipboard.writeText) {
+			await navigator.clipboard.writeText(url);
+		} else {
+			const el = document.createElement("textarea");
+			el.value = url;
+			document.body.appendChild(el);
+			el.select();
+			document.execCommand("copy");
+			document.body.removeChild(el);
+		}
+		toast.success(`Portal link for ${dep.dependent_name} copied!`);
+	} catch (e) {
+		toast.error("Could not copy link to clipboard.");
+	}
 }
 
 function rowActions(dep) {
-  const actions = [
-    {
-      label: 'Copy portal link',
-      icon: Copy,
-      onClick: () => copyPortalLink(dep),
-    },
-    {
-      label: 'Open portal',
-      icon: ExternalLink,
-      onClick: () => window.open(getPortalUrl(dep), '_blank'),
-    },
-    {
-      label: 'Edit',
-      icon: Pencil,
-      onClick: () => openEdit(dep),
-    },
-  ]
-  if (dep.is_active) {
-    actions.push({
-      label: 'Archive',
-      icon: Archive,
-      disabled: archiving.value === dep.name,
-      onClick: () => archiveDep(dep),
-    })
-  } else {
-    actions.push({
-      label: 'Restore',
-      icon: RotateCcw,
-      disabled: restoring.value === dep.name,
-      onClick: () => restoreDep(dep),
-    })
-  }
-  actions.push({
-    label: 'Delete',
-    icon: Trash2,
-    theme: 'red',
-    onClick: () => requestDelete(dep),
-  })
-  return actions
+	const actions = [
+		{
+			label: "Copy portal link",
+			icon: Copy,
+			onClick: () => copyPortalLink(dep),
+		},
+		{
+			label: "Open portal",
+			icon: ExternalLink,
+			onClick: () => window.open(getPortalUrl(dep), "_blank"),
+		},
+		{
+			label: "Edit",
+			icon: Pencil,
+			onClick: () => openEdit(dep),
+		},
+	];
+	if (dep.is_active) {
+		actions.push({
+			label: "Archive",
+			icon: Archive,
+			disabled: archiving.value === dep.name,
+			onClick: () => archiveDep(dep),
+		});
+	} else {
+		actions.push({
+			label: "Restore",
+			icon: RotateCcw,
+			disabled: restoring.value === dep.name,
+			onClick: () => restoreDep(dep),
+		});
+	}
+	actions.push({
+		label: "Delete",
+		icon: Trash2,
+		theme: "red",
+		onClick: () => requestDelete(dep),
+	});
+	return actions;
 }
 </script>

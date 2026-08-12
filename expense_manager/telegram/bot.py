@@ -14,9 +14,7 @@ def process_update(update: dict[str, object]) -> None:
 			return
 		chat_id = _get_chat_id(update)
 		if chat_id is None:
-			frappe.logger("expense_manager").warning(
-				"telegram_bot status=ignored_missing_chat_id"
-			)
+			frappe.logger("expense_manager").warning("telegram_bot status=ignored_missing_chat_id")
 			return
 		send_message(chat_id, response_text)
 		frappe.logger("expense_manager").info("telegram_bot status=reply_completed")

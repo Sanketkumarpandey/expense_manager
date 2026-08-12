@@ -33,6 +33,7 @@ def _unique_email(prefix: str) -> str:
 # Mocked unit tests
 # =========================================================================
 
+
 class TestRegisterGuardianMocked(TestCase):
 	"""Guard, validation and provisioning logic with ``frappe`` mocked."""
 
@@ -77,13 +78,9 @@ class TestRegisterGuardianMocked(TestCase):
 		# get_doc dict call needs to return the fresh doc for .insert()
 		mock_get_doc.side_effect = lambda *a, **kw: doc
 
-		result = api_users.register_guardian(
-			" Guardian@Example.com ", "Guardian", send_welcome_email=False
-		)
+		result = api_users.register_guardian(" Guardian@Example.com ", "Guardian", send_welcome_email=False)
 
-		self.assertEqual(
-			result, {"success": True, "user": "guardian@example.com", "created": True}
-		)
+		self.assertEqual(result, {"success": True, "user": "guardian@example.com", "created": True})
 		user_dict = mock_get_doc.call_args[0][0]
 		self.assertEqual(user_dict["doctype"], "User")
 		self.assertEqual(user_dict["email"], "guardian@example.com")
@@ -97,9 +94,11 @@ class TestRegisterGuardianMocked(TestCase):
 	def test_expense_manager_user_rejected(self):
 		self._patch_session("guardian@example.com", ["Expense Manager User"])
 		mock_get_doc = MagicMock()
-		with patch.object(api_users.frappe, "get_doc", mock_get_doc), \
-		     patch.object(api_users.frappe.db, "exists") as mock_exists, \
-		     patch.object(api_users, "CategoryService") as mock_cat:
+		with (
+			patch.object(api_users.frappe, "get_doc", mock_get_doc),
+			patch.object(api_users.frappe.db, "exists") as mock_exists,
+			patch.object(api_users, "CategoryService") as mock_cat,
+		):
 			with self.assertRaises(frappe.PermissionError):
 				api_users.register_guardian("victim@example.com", "Victim")
 
@@ -112,9 +111,11 @@ class TestRegisterGuardianMocked(TestCase):
 	def test_guest_rejected(self):
 		self._patch_session("Guest", ["Guest"])
 		mock_get_doc = MagicMock()
-		with patch.object(api_users.frappe, "get_doc", mock_get_doc), \
-		     patch.object(api_users.frappe.db, "exists") as mock_exists, \
-		     patch.object(api_users, "CategoryService") as mock_cat:
+		with (
+			patch.object(api_users.frappe, "get_doc", mock_get_doc),
+			patch.object(api_users.frappe.db, "exists") as mock_exists,
+			patch.object(api_users, "CategoryService") as mock_cat,
+		):
 			with self.assertRaises(frappe.PermissionError):
 				api_users.register_guardian("victim@example.com", "Victim")
 
@@ -134,14 +135,14 @@ class TestRegisterGuardianMocked(TestCase):
 			return None
 
 		self._patch_session("Administrator", ["Administrator", "System Manager"])
-		with patch.object(api_users.frappe, "get_doc", side_effect=_get_doc) as mock_get_doc, \
-		     patch.object(api_users.frappe.db, "exists", return_value="guardian@example.com"), \
-		     patch.object(api_users, "CategoryService") as mock_cat:
+		with (
+			patch.object(api_users.frappe, "get_doc", side_effect=_get_doc) as mock_get_doc,
+			patch.object(api_users.frappe.db, "exists", return_value="guardian@example.com"),
+			patch.object(api_users, "CategoryService") as mock_cat,
+		):
 			result = api_users.register_guardian("guardian@example.com", "Guardian")
 
-		self.assertEqual(
-			result, {"success": True, "user": "guardian@example.com", "created": False}
-		)
+		self.assertEqual(result, {"success": True, "user": "guardian@example.com", "created": False})
 		user_doc.add_roles.assert_called_once_with(GUARDIAN_ROLE)
 		mock_cat.create_default_categories.assert_called_once_with("guardian@example.com")
 		# the user was fetched, not re-inserted
@@ -159,14 +160,14 @@ class TestRegisterGuardianMocked(TestCase):
 		self._patches.append(patch.object(api_users.frappe, "get_roles", return_value=[GUARDIAN_ROLE]))
 		for p in self._patches[-2:]:
 			p.start()
-		with patch.object(api_users.frappe, "get_doc", side_effect=_get_doc) as mock_get_doc, \
-		     patch.object(api_users.frappe.db, "exists", return_value="guardian@example.com"), \
-		     patch.object(api_users, "CategoryService") as mock_cat:
+		with (
+			patch.object(api_users.frappe, "get_doc", side_effect=_get_doc) as mock_get_doc,
+			patch.object(api_users.frappe.db, "exists", return_value="guardian@example.com"),
+			patch.object(api_users, "CategoryService") as mock_cat,
+		):
 			result = api_users.register_guardian("guardian@example.com", "Guardian")
 
-		self.assertEqual(
-			result, {"success": True, "user": "guardian@example.com", "created": False}
-		)
+		self.assertEqual(result, {"success": True, "user": "guardian@example.com", "created": False})
 		user_doc.add_roles.assert_not_called()
 		mock_cat.create_default_categories.assert_called_once_with("guardian@example.com")
 		mock_get_doc.assert_called_once_with("User", "guardian@example.com")
@@ -176,9 +177,11 @@ class TestRegisterGuardianMocked(TestCase):
 	def test_invalid_email_rejected_before_provisioning(self):
 		self._patch_session("Administrator", ["Administrator", "System Manager"])
 		mock_get_doc = MagicMock()
-		with patch.object(api_users.frappe, "get_doc", mock_get_doc), \
-		     patch.object(api_users.frappe.db, "exists") as mock_exists, \
-		     patch.object(api_users, "CategoryService") as mock_cat:
+		with (
+			patch.object(api_users.frappe, "get_doc", mock_get_doc),
+			patch.object(api_users.frappe.db, "exists") as mock_exists,
+			patch.object(api_users, "CategoryService") as mock_cat,
+		):
 			with self.assertRaises(frappe.InvalidEmailAddressError):
 				api_users.register_guardian("not-an-email", "Test")
 
@@ -189,9 +192,11 @@ class TestRegisterGuardianMocked(TestCase):
 	def test_missing_email_rejected_before_provisioning(self):
 		self._patch_session("Administrator", ["Administrator"])
 		mock_get_doc = MagicMock()
-		with patch.object(api_users.frappe, "get_doc", mock_get_doc), \
-		     patch.object(api_users.frappe.db, "exists") as mock_exists, \
-		     patch.object(api_users, "CategoryService") as mock_cat:
+		with (
+			patch.object(api_users.frappe, "get_doc", mock_get_doc),
+			patch.object(api_users.frappe.db, "exists") as mock_exists,
+			patch.object(api_users, "CategoryService") as mock_cat,
+		):
 			with self.assertRaises(frappe.ValidationError):
 				api_users.register_guardian("", "Test")
 
@@ -202,9 +207,11 @@ class TestRegisterGuardianMocked(TestCase):
 	def test_missing_first_name_rejected_before_provisioning(self):
 		self._patch_session("Administrator", ["Administrator"])
 		mock_get_doc = MagicMock()
-		with patch.object(api_users.frappe, "get_doc", mock_get_doc), \
-		     patch.object(api_users.frappe.db, "exists") as mock_exists, \
-		     patch.object(api_users, "CategoryService") as mock_cat:
+		with (
+			patch.object(api_users.frappe, "get_doc", mock_get_doc),
+			patch.object(api_users.frappe.db, "exists") as mock_exists,
+			patch.object(api_users, "CategoryService") as mock_cat,
+		):
 			with self.assertRaises(frappe.ValidationError):
 				api_users.register_guardian("guardian@example.com", "")
 
@@ -216,6 +223,7 @@ class TestRegisterGuardianMocked(TestCase):
 # =========================================================================
 # Real-DB integration tests
 # =========================================================================
+
 
 class TestRegisterGuardianOnLiveDb(frappe.tests.IntegrationTestCase):
 	"""Real-DB: register_guardian against the live site.
@@ -246,9 +254,7 @@ class TestRegisterGuardianOnLiveDb(frappe.tests.IntegrationTestCase):
 
 		self.assertTrue(frappe.db.exists("User", email))
 		# Assert against the DB directly, not the request-local roles cache.
-		self.assertTrue(
-			frappe.db.exists("Has Role", {"parent": email, "role": GUARDIAN_ROLE})
-		)
+		self.assertTrue(frappe.db.exists("Has Role", {"parent": email, "role": GUARDIAN_ROLE}))
 		role_rows = frappe.get_all(
 			"Has Role", filters={"parent": email, "role": GUARDIAN_ROLE}, fields=["name"]
 		)
@@ -264,9 +270,9 @@ class TestRegisterGuardianOnLiveDb(frappe.tests.IntegrationTestCase):
 
 	def test_real_permission_check_rejects_role_less_user(self):
 		roleless = _unique_email("roleless")
-		frappe.get_doc(
-			{"doctype": "User", "email": roleless, "first_name": "Roleless"}
-		).insert(ignore_permissions=True)
+		frappe.get_doc({"doctype": "User", "email": roleless, "first_name": "Roleless"}).insert(
+			ignore_permissions=True
+		)
 		self.addCleanup(frappe.set_user, "Administrator")
 
 		victim = _unique_email("victim")
@@ -282,14 +288,10 @@ class TestRegisterGuardianOnLiveDb(frappe.tests.IntegrationTestCase):
 
 	def test_plain_desktop_creation_is_not_a_blanket_hook(self):
 		email = _unique_email("plain")
-		frappe.get_doc(
-			{"doctype": "User", "email": email, "first_name": "Plain User"}
-		).insert(ignore_permissions=True)
+		frappe.get_doc({"doctype": "User", "email": email, "first_name": "Plain User"}).insert(
+			ignore_permissions=True
+		)
 
 		self.assertTrue(frappe.db.exists("User", email))
-		self.assertFalse(
-			frappe.db.exists("Has Role", {"parent": email, "role": GUARDIAN_ROLE})
-		)
-		self.assertEqual(
-			frappe.get_all("Category", filters={"owner_user": email}), []
-		)
+		self.assertFalse(frappe.db.exists("Has Role", {"parent": email, "role": GUARDIAN_ROLE}))
+		self.assertEqual(frappe.get_all("Category", filters={"owner_user": email}), [])

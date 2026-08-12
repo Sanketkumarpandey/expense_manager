@@ -22,7 +22,9 @@ class TestTelegramWebhook(TestCase):
 		self.patches = (
 			patch.object(webhook.frappe, "request", self.request),
 			patch.object(webhook.frappe, "cache", return_value=self.cache),
-			patch("expense_manager.telegram.webhook.get_telegram_webhook_secret", return_value="expected-secret"),
+			patch(
+				"expense_manager.telegram.webhook.get_telegram_webhook_secret", return_value="expected-secret"
+			),
 			patch.object(webhook.frappe, "enqueue"),
 			patch.object(webhook.frappe, "logger"),
 		)
@@ -113,4 +115,4 @@ class TestTelegramWebhook(TestCase):
 		"""Expose the endpoint through Frappe's whitelisted-method mechanism."""
 		self.assertIn(webhook.handle, frappe.whitelisted)
 		self.assertIn(webhook.handle, frappe.guest_methods)
-		self.assertEqual(frappe.allowed_http_methods_for_whitelisted_func[webhook.handle], ["POST"])
+		self.assertEqual(tuple(frappe.allowed_http_methods_for_whitelisted_func[webhook.handle]), ("POST",))

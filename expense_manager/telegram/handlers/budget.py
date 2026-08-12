@@ -27,6 +27,7 @@ def handle_budgets(update: dict[str, object]) -> str:
 		)
 	return "\n".join(lines)
 
+
 def handle_balance(update: dict[str, object]) -> str:
 	telegram_user_id = get_telegram_user_id(update)
 	if telegram_user_id is None:

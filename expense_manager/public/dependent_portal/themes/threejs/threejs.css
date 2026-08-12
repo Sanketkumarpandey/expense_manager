@@ -9,22 +9,22 @@ html[data-theme="threejs"] {
   --3d-bg-hover: rgba(30, 41, 59, 0.8);
   --3d-border: rgba(56, 189, 248, 0.25);
   --3d-border-subtle: rgba(255, 255, 255, 0.08);
-  
+
   --3d-ink-main: #f8fafc;
   --3d-ink-muted: #94a3b8;
   --3d-ink-subtle: #64748b;
-  
+
   --3d-accent: #38bdf8;
   --3d-accent-glow: rgba(56, 189, 248, 0.35);
-  
+
   --3d-success-bg: rgba(6, 78, 59, 0.4);
   --3d-success-border: rgba(52, 211, 153, 0.4);
   --3d-success-ink: #34d399;
-  
+
   --3d-danger-bg: rgba(127, 29, 29, 0.4);
   --3d-danger-border: rgba(248, 113, 113, 0.4);
   --3d-danger-ink: #f87171;
-  
+
   --3d-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(56, 189, 248, 0.1);
 }
 
