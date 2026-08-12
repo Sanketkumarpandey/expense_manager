@@ -26,14 +26,14 @@ _API_UNSET = "__unset__"
 
 @frappe.whitelist(methods=["POST"])
 def create_expense(
-	category,
-	amount,
-	expense_date,
-	dependent=None,
-	description=None,
-	source=None,
-	payment_method=None,
-	voice_transcript=None,
+	category: str,
+	amount: float,
+	expense_date: str,
+	dependent: str | None = None,
+	description: str | None = None,
+	source: str | None = None,
+	payment_method: str | None = None,
+	voice_transcript: str | None = None,
 ):
 	user = _current_user()
 
@@ -70,7 +70,7 @@ def create_expense(
 
 
 @frappe.whitelist(methods=["GET"])
-def get_expense(expense):
+def get_expense(expense: str):
 	user = _current_user()
 	try:
 		doc = ExpenseService.get_expense(user, expense).as_dict()
@@ -82,13 +82,13 @@ def get_expense(expense):
 
 @frappe.whitelist(methods=["POST"])
 def update_expense(
-	expense,
-	category=None,
-	amount=None,
-	expense_date=None,
-	dependent=_API_UNSET,
-	description=_API_UNSET,
-	payment_method=_API_UNSET,
+	expense: str,
+	category: str | None = None,
+	amount: float | None = None,
+	expense_date: str | None = None,
+	dependent: str | None = _API_UNSET,
+	description: str | None = _API_UNSET,
+	payment_method: str | None = _API_UNSET,
 ):
 	user = _current_user()
 
@@ -119,7 +119,7 @@ def update_expense(
 
 
 @frappe.whitelist(methods=["POST"])
-def create_expense_from_text(text, dependent=None):
+def create_expense_from_text(text: str, dependent: str | None = None):
 	"""AI-assisted quick add. Thin wrapper around AIService so the desk
 	quick-add box and the Telegram text pipeline share the same parsing
 	logic. Mirrors TelegramService.create_expense_from_text error handling:
@@ -156,7 +156,7 @@ def create_expense_from_text(text, dependent=None):
 
 
 @frappe.whitelist(methods=["POST"])
-def delete_expense(expense):
+def delete_expense(expense: str):
 	user = _current_user()
 	try:
 		ExpenseService.delete_expense(user, expense)
@@ -208,7 +208,13 @@ def _enrich_expenses(expenses: list[dict], lookup: dict[str, dict], user: str) -
 
 
 @frappe.whitelist(methods=["GET"])
-def list_expenses(dependent=None, category=None, date_from=None, date_to=None, limit=None):
+def list_expenses(
+	dependent: str | None = None,
+	category: str | None = None,
+	date_from: str | None = None,
+	date_to: str | None = None,
+	limit: int | None = None,
+):
 	user = _current_user()
 	try:
 		data = ExpenseService.list_expenses(
@@ -226,7 +232,7 @@ def list_expenses(dependent=None, category=None, date_from=None, date_to=None, l
 
 
 @frappe.whitelist(methods=["GET"])
-def get_recent_expenses(dependent=None, limit=10):
+def get_recent_expenses(dependent: str | None = None, limit: int = 10):
 	user = _current_user()
 	try:
 		data = ExpenseService.get_recent_expenses(user, dependent=dependent, limit=cint(limit))
@@ -237,7 +243,7 @@ def get_recent_expenses(dependent=None, limit=10):
 
 
 @frappe.whitelist(methods=["GET"])
-def get_expenses_by_category(category, dependent=None):
+def get_expenses_by_category(category: str, dependent: str | None = None):
 	user = _current_user()
 	try:
 		data = ExpenseService.get_expenses_by_category(user, category, dependent=dependent)
@@ -248,7 +254,7 @@ def get_expenses_by_category(category, dependent=None):
 
 
 @frappe.whitelist(methods=["GET"])
-def get_expenses_by_date_range(date_from, date_to, dependent=None):
+def get_expenses_by_date_range(date_from: str, date_to: str, dependent: str | None = None):
 	user = _current_user()
 	try:
 		data = ExpenseService.get_expenses_by_date_range(

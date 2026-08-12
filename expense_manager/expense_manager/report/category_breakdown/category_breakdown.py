@@ -22,7 +22,7 @@ def execute(filters=None):
 		{"fieldname": "category_name", "label": _("Category"), "fieldtype": "Data", "width": 150},
 		{"fieldname": "total_amount", "label": _("Total Amount"), "fieldtype": "Currency", "width": 120},
 		{"fieldname": "expense_count", "label": _("Expenses"), "fieldtype": "Int", "width": 100},
-		{"fieldname": "percentage_of_total", "label": ("% of Total"), "fieldtype": "Percent", "width": 120},
+		{"fieldname": "percentage_of_total", "label": _("% of Total"), "fieldtype": "Percent", "width": 120},
 	]
 
 	rows = [

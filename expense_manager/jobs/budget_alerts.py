@@ -83,7 +83,10 @@ def run_budget_alerts() -> None:
 			skipped += 1
 			continue
 
-		frappe.db.commit()
+		# Manual commit required: each budget is processed independently, and
+		# a failure for a later budget rolls back only its own row. Committing
+		# here preserves alerts already sent for earlier budgets.
+		frappe.db.commit()  # nosemgrep: frappe-semgrep-rules.rules.frappe-manual-commit
 		notified += 1
 		logger.info(
 			"Budget alert sent | budget=%s | owner=%s | category=%s | dependent=%s | spent=%s | allocated=%s | percentage=%s | threshold=%s",

@@ -15,7 +15,9 @@ from expense_manager.services.exceptions import ExpenseManagerError
 
 
 @frappe.whitelist(methods=["POST"])
-def register_guardian(email, first_name, last_name=None, send_welcome_email=True):
+def register_guardian(
+	email: str, first_name: str, last_name: str | None = None, send_welcome_email: bool = True
+):
 	"""Provision a guardian User with the Expense Manager User role and seed
 	their default categories.
 

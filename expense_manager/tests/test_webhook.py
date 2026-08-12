@@ -115,4 +115,4 @@ class TestTelegramWebhook(TestCase):
 		"""Expose the endpoint through Frappe's whitelisted-method mechanism."""
 		self.assertIn(webhook.handle, frappe.whitelisted)
 		self.assertIn(webhook.handle, frappe.guest_methods)
-		self.assertEqual(frappe.allowed_http_methods_for_whitelisted_func[webhook.handle], ["POST"])
+		self.assertEqual(tuple(frappe.allowed_http_methods_for_whitelisted_func[webhook.handle]), ("POST",))

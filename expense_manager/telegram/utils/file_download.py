@@ -46,4 +46,5 @@ def download_voice_file(file_id: str) -> str:
 	suffix = os.path.splitext(remote_path)[1] or ".ogg"
 	with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
 		tmp.write(download_response.content)
+		tmp.flush()
 		return tmp.name

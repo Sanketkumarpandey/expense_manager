@@ -20,14 +20,14 @@ _API_UNSET = "__unset__"
 
 @frappe.whitelist(methods=["POST"])
 def create_budget(
-	category,
-	allocated_amount,
-	period="Monthly",
-	start_date=None,
-	end_date=None,
-	alert_threshold_pct=90,
-	notes=None,
-	dependent=None,
+	category: str,
+	allocated_amount: float,
+	period: str = "Monthly",
+	start_date: str | None = None,
+	end_date: str | None = None,
+	alert_threshold_pct: int = 90,
+	notes: str | None = None,
+	dependent: str | None = None,
 ):
 	user = _current_user()
 	if not start_date:
@@ -53,7 +53,7 @@ def create_budget(
 
 
 @frappe.whitelist(methods=["GET"])
-def get_budget(budget, dependent=None):
+def get_budget(budget: str, dependent: str | None = None):
 	user = _current_user()
 	try:
 		return BudgetService.get_budget(user, budget, dependent=dependent).as_dict()
@@ -63,14 +63,14 @@ def get_budget(budget, dependent=None):
 
 @frappe.whitelist(methods=["POST"])
 def update_budget(
-	budget,
-	allocated_amount=None,
-	period=None,
-	start_date=None,
-	end_date=None,
-	alert_threshold_pct=None,
-	notes=_API_UNSET,
-	dependent=None,
+	budget: str,
+	allocated_amount: float | None = None,
+	period: str | None = None,
+	start_date: str | None = None,
+	end_date: str | None = None,
+	alert_threshold_pct: int | None = None,
+	notes: str | None = _API_UNSET,
+	dependent: str | None = None,
 ):
 	user = _current_user()
 
@@ -97,7 +97,7 @@ def update_budget(
 
 
 @frappe.whitelist(methods=["POST"])
-def delete_budget(budget, dependent=None):
+def delete_budget(budget: str, dependent: str | None = None):
 	user = _current_user()
 	try:
 		BudgetService.delete_budget(user, budget, dependent=dependent)
@@ -107,7 +107,7 @@ def delete_budget(budget, dependent=None):
 
 
 @frappe.whitelist(methods=["POST"])
-def archive_budget(budget, dependent=None):
+def archive_budget(budget: str, dependent: str | None = None):
 	user = _current_user()
 	try:
 		return BudgetService.archive_budget(user, budget, dependent=dependent).as_dict()
@@ -116,7 +116,7 @@ def archive_budget(budget, dependent=None):
 
 
 @frappe.whitelist(methods=["POST"])
-def restore_budget(budget, dependent=None):
+def restore_budget(budget: str, dependent: str | None = None):
 	user = _current_user()
 	try:
 		return BudgetService.restore_budget(user, budget, dependent=dependent).as_dict()
@@ -125,7 +125,7 @@ def restore_budget(budget, dependent=None):
 
 
 @frappe.whitelist(methods=["GET"])
-def list_budgets(category=None, active_only=0, dependent=None):
+def list_budgets(category: str | None = None, active_only: int = 0, dependent: str | None = None):
 	user = _current_user()
 	dependent = dependent or None
 	try:
@@ -141,7 +141,7 @@ def list_budgets(category=None, active_only=0, dependent=None):
 
 
 @frappe.whitelist(methods=["GET"])
-def search_budgets(search_text=None, active_only=1, dependent=None):
+def search_budgets(search_text: str | None = None, active_only: int = 1, dependent: str | None = None):
 	user = _current_user()
 	dependent = dependent or None
 	try:
@@ -156,7 +156,7 @@ def search_budgets(search_text=None, active_only=1, dependent=None):
 
 
 @frappe.whitelist(methods=["GET"])
-def get_budget_usage(category, dependent=None):
+def get_budget_usage(category: str, dependent: str | None = None):
 	user = _current_user()
 	dependent = dependent or None
 	try:

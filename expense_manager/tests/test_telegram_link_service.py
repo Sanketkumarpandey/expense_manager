@@ -68,7 +68,13 @@ class TestGetLink(ServiceTestCase):
 class TestLinkAccount(ServiceTestCase):
 	@patch("expense_manager.services.telegram_link_service.TelegramLinkService.is_linked", return_value=False)
 	def test_generates_token(self, _mock_linked):
-		with patch("expense_manager.services.telegram_link_service.frappe") as mock_frappe:
+		with (
+			patch("expense_manager.services.telegram_link_service.frappe") as mock_frappe,
+			patch(
+				"expense_manager.services.telegram_link_service.now_datetime",
+				return_value=datetime.now(),
+			),
+		):
 			mock_frappe.cache.return_value = MagicMock()
 			mock_frappe.db.exists.return_value = "User"
 			result = TelegramLinkService.link_account(SAMPLE_USER)
@@ -113,7 +119,13 @@ class TestVerifyAndLink(ServiceTestCase):
 			"user": SAMPLE_USER,
 			"expires_at": (datetime.now() - timedelta(minutes=5)).isoformat(),
 		}
-		with patch("expense_manager.services.telegram_link_service.frappe") as mock_frappe:
+		with (
+			patch("expense_manager.services.telegram_link_service.frappe") as mock_frappe,
+			patch(
+				"expense_manager.services.telegram_link_service.now_datetime",
+				return_value=datetime.now(),
+			),
+		):
 			mock_frappe.cache.return_value = MagicMock()
 			mock_frappe.cache.return_value.get_value.return_value = expired_payload
 			with self.assertRaises(ExpiredTelegramLinkCodeError):
@@ -125,7 +137,13 @@ class TestVerifyAndLink(ServiceTestCase):
 			"user": SAMPLE_USER,
 			"expires_at": (datetime.now() + timedelta(minutes=5)).isoformat(),
 		}
-		with patch("expense_manager.services.telegram_link_service.frappe") as mock_frappe:
+		with (
+			patch("expense_manager.services.telegram_link_service.frappe") as mock_frappe,
+			patch(
+				"expense_manager.services.telegram_link_service.now_datetime",
+				return_value=datetime.now(),
+			),
+		):
 			mock_frappe.cache.return_value = MagicMock()
 			mock_frappe.cache.return_value.get_value.return_value = valid_payload
 			with self.assertRaises(TelegramAlreadyLinkedError):
@@ -141,11 +159,16 @@ class TestVerifyAndLink(ServiceTestCase):
 		mock_doc = MagicMock()
 		mock_doc.name = "tl-new-001"
 
-		with patch("expense_manager.services.telegram_link_service.frappe") as mock_frappe:
+		with (
+			patch("expense_manager.services.telegram_link_service.frappe") as mock_frappe,
+			patch(
+				"expense_manager.services.telegram_link_service.now_datetime",
+				return_value=datetime.now(),
+			),
+		):
 			mock_frappe.cache.return_value = MagicMock()
 			mock_frappe.cache.return_value.get_value.return_value = valid_payload
 			mock_frappe.get_doc.return_value = mock_doc
-			mock_frappe.utils.now_datetime.return_value = datetime.now()
 
 			TelegramLinkService.verify_and_link("TOKEN1234", "123456789", telegram_username="testuser")
 			mock_doc.insert.assert_called_once()

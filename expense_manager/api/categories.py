@@ -14,7 +14,7 @@ from expense_manager.services.exceptions import ExpenseManagerError
 
 
 @frappe.whitelist(methods=["POST"])
-def create_category(category_name, icon=None):
+def create_category(category_name: str, icon: str | None = None):
 	user = _current_user()
 	try:
 		return CategoryService.create_category(user, category_name, icon).as_dict()
@@ -23,7 +23,7 @@ def create_category(category_name, icon=None):
 
 
 @frappe.whitelist(methods=["GET"])
-def get_category(category):
+def get_category(category: str):
 	user = _current_user()
 	try:
 		return CategoryService.get_category(user, category).as_dict()
@@ -32,7 +32,9 @@ def get_category(category):
 
 
 @frappe.whitelist(methods=["POST"])
-def update_category(category, category_name=None, icon=None, is_active=None):
+def update_category(
+	category: str, category_name: str | None = None, icon: str | None = None, is_active: int | None = None
+):
 	user = _current_user()
 	try:
 		return CategoryService.update_category(
@@ -47,7 +49,7 @@ def update_category(category, category_name=None, icon=None, is_active=None):
 
 
 @frappe.whitelist(methods=["POST"])
-def delete_category(category):
+def delete_category(category: str):
 	user = _current_user()
 	try:
 		CategoryService.delete_category(user, category)
@@ -57,7 +59,7 @@ def delete_category(category):
 
 
 @frappe.whitelist(methods=["POST"])
-def archive_category(category):
+def archive_category(category: str):
 	user = _current_user()
 	try:
 		return CategoryService.archive_category(user, category).as_dict()
@@ -66,7 +68,7 @@ def archive_category(category):
 
 
 @frappe.whitelist(methods=["POST"])
-def restore_category(category):
+def restore_category(category: str):
 	user = _current_user()
 	try:
 		return CategoryService.restore_category(user, category).as_dict()
@@ -75,7 +77,7 @@ def restore_category(category):
 
 
 @frappe.whitelist(methods=["GET"])
-def list_categories(active_only=0):
+def list_categories(active_only: int = 0):
 	user = _current_user()
 	try:
 		return CategoryService.list_categories(user, active_only=bool(cint(active_only)))
@@ -84,7 +86,7 @@ def list_categories(active_only=0):
 
 
 @frappe.whitelist(methods=["GET"])
-def search_categories(search_text=None, active_only=1):
+def search_categories(search_text: str | None = None, active_only: int = 1):
 	user = _current_user()
 	try:
 		return CategoryService.search_categories(

@@ -23,12 +23,12 @@ _API_UNSET = "__unset__"
 
 @frappe.whitelist(methods=["POST"])
 def create_dependent(
-	dependent_name,
-	relationship,
-	default_monthly_allowance,
-	telegram_username=None,
-	telegram_user_id=None,
-	allow_carry_forward=1,
+	dependent_name: str,
+	relationship: str,
+	default_monthly_allowance: float,
+	telegram_username: str | None = None,
+	telegram_user_id: str | None = None,
+	allow_carry_forward: int = 1,
 ):
 	user = _current_user()
 	try:
@@ -46,7 +46,7 @@ def create_dependent(
 
 
 @frappe.whitelist(methods=["GET"])
-def get_dependent(dependent):
+def get_dependent(dependent: str):
 	user = _current_user()
 	try:
 		return DependentService.get_dependent(user, dependent).as_dict()
@@ -56,13 +56,13 @@ def get_dependent(dependent):
 
 @frappe.whitelist(methods=["POST"])
 def update_dependent(
-	dependent,
-	dependent_name=None,
-	relationship=None,
-	default_monthly_allowance=None,
-	telegram_username=_API_UNSET,
-	telegram_user_id=_API_UNSET,
-	allow_carry_forward=None,
+	dependent: str,
+	dependent_name: str | None = None,
+	relationship: str | None = None,
+	default_monthly_allowance: float | None = None,
+	telegram_username: str | None = _API_UNSET,
+	telegram_user_id: str | None = _API_UNSET,
+	allow_carry_forward: int | None = None,
 ):
 	user = _current_user()
 
@@ -87,7 +87,7 @@ def update_dependent(
 
 
 @frappe.whitelist(methods=["POST"])
-def delete_dependent(dependent):
+def delete_dependent(dependent: str):
 	user = _current_user()
 	try:
 		DependentService.delete_dependent(user, dependent)
@@ -97,7 +97,7 @@ def delete_dependent(dependent):
 
 
 @frappe.whitelist(methods=["POST"])
-def archive_dependent(dependent):
+def archive_dependent(dependent: str):
 	user = _current_user()
 	try:
 		return DependentService.archive_dependent(user, dependent).as_dict()
@@ -106,7 +106,7 @@ def archive_dependent(dependent):
 
 
 @frappe.whitelist(methods=["POST"])
-def restore_dependent(dependent):
+def restore_dependent(dependent: str):
 	user = _current_user()
 	try:
 		return DependentService.restore_dependent(user, dependent).as_dict()
@@ -115,7 +115,7 @@ def restore_dependent(dependent):
 
 
 @frappe.whitelist(methods=["GET"])
-def list_dependents(active_only=0):
+def list_dependents(active_only: int = 0):
 	user = _current_user()
 	try:
 		return DependentService.list_dependents(user, active_only=bool(cint(active_only)))
@@ -124,7 +124,7 @@ def list_dependents(active_only=0):
 
 
 @frappe.whitelist(methods=["GET"])
-def search_dependents(search_text=None, active_only=1):
+def search_dependents(search_text: str | None = None, active_only: int = 1):
 	user = _current_user()
 	try:
 		return DependentService.search_dependents(
@@ -137,7 +137,7 @@ def search_dependents(search_text=None, active_only=1):
 
 
 @frappe.whitelist(methods=["GET"])
-def list_allowed_categories(dependent, active_only=1):
+def list_allowed_categories(dependent: str, active_only: int = 1):
 	"""List the categories a dependent may use.
 
 	An empty allowed_categories child table means the dependent may use all
@@ -156,7 +156,7 @@ def list_allowed_categories(dependent, active_only=1):
 
 
 @frappe.whitelist(methods=["POST"])
-def add_allowed_category(dependent, category):
+def add_allowed_category(dependent: str, category: str):
 	"""Explicitly allow a guardian-owned category for a dependent.
 
 	``category`` may be a Category doc name or a category name. Idempotent:
@@ -176,7 +176,7 @@ def add_allowed_category(dependent, category):
 
 
 @frappe.whitelist(methods=["POST"])
-def remove_allowed_category(dependent, category):
+def remove_allowed_category(dependent: str, category: str):
 	"""Revoke an allowed category from a dependent's list."""
 	user = _current_user()
 	try:
@@ -191,8 +191,12 @@ def remove_allowed_category(dependent, category):
 		return {"success": False, "message": str(exc)}
 
 
+# Guest access is required: the dependent portal is opened from a plain
+# browser link (no Frappe login). It is secured by validating the opaque
+# per-dependent access_token below, which never grants write access.
+# nosemgrep: frappe-semgrep-rules.rules.security.guest-whitelisted-method
 @frappe.whitelist(allow_guest=True, methods=["GET"])
-def get_portal_data(token=None):
+def get_portal_data(token: str | None = None):
 	"""Retrieve full scoped dashboard data for a dependent via access token or ID.
 
 	Returns only this dependent's data:

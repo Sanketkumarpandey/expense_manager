@@ -19,12 +19,12 @@ _API_UNSET = "__unset__"
 
 @frappe.whitelist(methods=["POST"])
 def create_allocation(
-	dependent,
-	allocated_amount,
-	allocation_period,
-	allocation_date=None,
-	carry_forward_amount=0,
-	remarks=None,
+	dependent: str,
+	allocated_amount: float,
+	allocation_period: str,
+	allocation_date: str | None = None,
+	carry_forward_amount: float = 0,
+	remarks: str | None = None,
 ):
 	guardian = _current_user()
 	try:
@@ -42,7 +42,7 @@ def create_allocation(
 
 
 @frappe.whitelist(methods=["GET"])
-def get_allocation(allocation):
+def get_allocation(allocation: str):
 	guardian = _current_user()
 	try:
 		return PocketMoneyService.get_allocation(guardian, allocation).as_dict()
@@ -52,12 +52,12 @@ def get_allocation(allocation):
 
 @frappe.whitelist(methods=["POST"])
 def update_allocation(
-	allocation,
-	allocated_amount=None,
-	allocation_period=None,
-	allocation_date=None,
-	carry_forward_amount=None,
-	remarks=_API_UNSET,
+	allocation: str,
+	allocated_amount: float | None = None,
+	allocation_period: str | None = None,
+	allocation_date: str | None = None,
+	carry_forward_amount: float | None = None,
+	remarks: str | None = _API_UNSET,
 ):
 	guardian = _current_user()
 
@@ -80,7 +80,7 @@ def update_allocation(
 
 
 @frappe.whitelist(methods=["POST"])
-def delete_allocation(allocation):
+def delete_allocation(allocation: str):
 	guardian = _current_user()
 	try:
 		PocketMoneyService.delete_allocation(guardian, allocation)
@@ -90,7 +90,7 @@ def delete_allocation(allocation):
 
 
 @frappe.whitelist(methods=["POST"])
-def archive_allocation(allocation):
+def archive_allocation(allocation: str):
 	guardian = _current_user()
 	try:
 		return PocketMoneyService.archive_allocation(guardian, allocation).as_dict()
@@ -99,7 +99,7 @@ def archive_allocation(allocation):
 
 
 @frappe.whitelist(methods=["POST"])
-def restore_allocation(allocation):
+def restore_allocation(allocation: str):
 	guardian = _current_user()
 	try:
 		return PocketMoneyService.restore_allocation(guardian, allocation).as_dict()
@@ -108,7 +108,7 @@ def restore_allocation(allocation):
 
 
 @frappe.whitelist(methods=["GET"])
-def list_allocations(dependent=None, active_only=0):
+def list_allocations(dependent: str | None = None, active_only: int = 0):
 	guardian = _current_user()
 	try:
 		return PocketMoneyService.list_allocations(
@@ -121,7 +121,7 @@ def list_allocations(dependent=None, active_only=0):
 
 
 @frappe.whitelist(methods=["GET"])
-def search_allocations(search_text=None, active_only=1):
+def search_allocations(search_text: str | None = None, active_only: int = 1):
 	guardian = _current_user()
 	try:
 		return PocketMoneyService.search_allocations(
@@ -134,7 +134,7 @@ def search_allocations(search_text=None, active_only=1):
 
 
 @frappe.whitelist(methods=["GET"])
-def get_balance(dependent=None):
+def get_balance(dependent: str | None = None):
 	if not dependent:
 		dependent = frappe.form_dict.get("dependent") or (
 			frappe.request and frappe.request.args.get("dependent")
@@ -152,7 +152,7 @@ def get_balance(dependent=None):
 
 
 @frappe.whitelist(methods=["POST"])
-def rollover_allocation(dependent):
+def rollover_allocation(dependent: str):
 	"""
 	Manual, desk-triggered rollover for a single dependent — e.g. a
 	guardian who doesn't want to wait for the scheduled monthly

@@ -12,6 +12,10 @@ _DEDUPLICATION_TTL_SECONDS = 24 * 60 * 60
 _SECRET_HEADER = "X-Telegram-Bot-Api-Secret-Token"
 
 
+# Guest access is required: Telegram sends webhook POSTs unauthenticated.
+# It is secured by the X-Telegram-Bot-Api-Secret-Token header, validated
+# with hmac.compare_digest against the configured secret in _verify_secret_token().
+# nosemgrep: frappe-semgrep-rules.rules.security.guest-whitelisted-method
 @frappe.whitelist(allow_guest=True, methods=["POST"])
 def handle() -> dict[str, bool]:
 	"""Validate and enqueue one Telegram update; it does not route or process it."""

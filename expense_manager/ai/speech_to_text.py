@@ -27,6 +27,10 @@ def transcribe(file_path: str, language_hint: str | None = None) -> str:
 		try:
 			filename = os.path.basename(file_path)
 			content_type = mimetypes.guess_type(filename)[0] or "audio/ogg"
+			# file_path is always a server-generated local temp path created by
+			# telegram/utils/file_download.py — never client-supplied — so there
+			# is no user-controlled path-traversal surface here.
+			# nosemgrep: frappe-semgrep-rules.rules.security.frappe-security-file-traversal
 			with open(file_path, "rb") as audio_file:
 				response = requests.post(
 					SpeechToTextConfig.ENDPOINT,
