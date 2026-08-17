@@ -1,6 +1,7 @@
 """Unit tests for AI adapters (ai_parser and speech_to_text)."""
 
 import json
+from datetime import date, timedelta
 from typing import ClassVar
 from unittest import TestCase
 from unittest.mock import MagicMock, mock_open, patch
@@ -11,6 +12,8 @@ from expense_manager.ai.speech_to_text import transcribe
 from expense_manager.constants.ai import ExpenseParsingConfig, SpeechToTextConfig
 from expense_manager.services.ai_service import AIService
 from expense_manager.services.exceptions import PocketMoneyExceededError
+
+RECENT_DATE = (date.today() - timedelta(days=7)).isoformat()
 
 # ------------------------------------------------------------------
 # ai_parser.parse_expense
@@ -50,7 +53,7 @@ class TestParseExpenseRealMode(TestCase):
 				"amount": 150.0,
 				"category": "Food",
 				"description": "Lunch at cafe",
-				"date": "2026-07-15",
+				"date": RECENT_DATE,
 				"transaction_type": "expense",
 			}
 		)
@@ -139,7 +142,7 @@ class TestParseExpenseRealMode(TestCase):
 				"amount": 0,
 				"category": "Food",
 				"description": "test",
-				"date": "2026-07-15",
+				"date": RECENT_DATE,
 				"transaction_type": "expense",
 			}
 		)
@@ -162,7 +165,7 @@ class TestParseExpenseRealMode(TestCase):
 				"amount": 100.0,
 				"category": "UnknownCategory",
 				"description": "test",
-				"date": "2026-07-15",
+				"date": RECENT_DATE,
 				"transaction_type": "expense",
 			}
 		)
@@ -208,7 +211,7 @@ class TestValidateExpenseJson(TestCase):
 				"amount": -50,
 				"category": "Food",
 				"description": "test",
-				"date": "2026-07-15",
+				"date": RECENT_DATE,
 				"transaction_type": "expense",
 			}
 		)
@@ -221,7 +224,7 @@ class TestValidateExpenseJson(TestCase):
 				"amount": 200.0,
 				"category": "Food",
 				"description": "Lunch",
-				"date": "2026-07-15",
+				"date": RECENT_DATE,
 				"transaction_type": "expense",
 			}
 		)
@@ -250,7 +253,7 @@ class TestValidateExpenseJson(TestCase):
 				"amount": 50.0,
 				"category": "food",
 				"description": "lunch",
-				"date": "2026-07-15",
+				"date": RECENT_DATE,
 				"transaction_type": "expense",
 			}
 		)
@@ -263,7 +266,7 @@ class TestValidateExpenseJson(TestCase):
 				"amount": 300.0,
 				"category": "zomato",
 				"description": "dinner",
-				"date": "2026-07-15",
+				"date": RECENT_DATE,
 				"transaction_type": "expense",
 			}
 		)

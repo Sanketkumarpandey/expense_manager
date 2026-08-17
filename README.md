@@ -161,7 +161,9 @@ Expenso includes a helper script to launch a Cloudflare Quick Tunnel and automat
 
 ## 5. Demo Video
 
-[Watch the walkthrough here](VIDEO_URL_PLACEHOLDER)
+![Watch the walkthrough video](docs/videos/Project_overview.webm)
+
+If the embedded player doesn't load, [watch it on Google Drive](https://drive.google.com/file/d/1OsOlI2vb8hBj2FfX2BZXLPUPBHT7Bu5N/view?usp=sharing).
 
 ---
 
